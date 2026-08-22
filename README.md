@@ -10,7 +10,7 @@ User wallet (owner)
         v
 InvAIriant DelegatedAccount
         |
-        +---- USDC / collateral
+        +---- AUSD / collateral
         |
         +---- Alias operator (hot wallet)
                     |
@@ -28,32 +28,52 @@ The owner wallet keeps custody. The operator is only configured for delegated ex
 - Chain ID: `143`
 - RPC: `https://rpc.monad.xyz`
 - Perpl Exchange: `0x34B6552d57a35a1D042CcAe1951BD1C370112a6F`
+- Perpl collateral: AUSD `0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a`
 - InvAIriant Factory: `0xb54B83513519Ec64e579F8F1CDdeaEF1CF4BB71b`
 - InvAIriant Implementation: `0x0CBBaB6F3f5915EBe3054Af76ef7e5c638AADa2e`
 
-## Current implementation
+## Perpl integration
 
 Implemented:
 
 - Monad/Perpl deployment verification
-- InvAIriant factory ABI
-- DelegatedAccount ABI
-- Separate agent operator key generation
-- Delegated account creation
-- Perpl protocol whitelist configuration
-- Perpl selector whitelist configuration
-- `CAN_TRADE_PERPS` + `CAN_LEVERAGE` operator permissions
-- Token whitelist configuration
-- Per-token spending and per-transaction limits
-- Generic delegated `execute()` calldata wrapper
+- Perpl public context/market client
+- Public market-data WebSocket
+- Authenticated Perpl trading WebSocket
+- API-key Ed25519 key generation
+- Perpl API-key enrollment payload flow
+- Wallet-signature + Ed25519 proof-of-possession enrollment
+- Delegated-account target-profile support
+- Perpl order request types and order submission
+- Perpl market subscriptions
+- Separate agent operator key support
+- Existing InvAIriant delegated-account integration
 
-Not hardcoded yet:
+### Trading flow
 
-- Perpl order-function ABI/selectors
-- Mainnet USDC address
-- Agent operator key persistence/encryption
+```text
+Connect owner wallet
+        |
+        v
+Create/configure delegated account
+        |
+        v
+Generate operator key
+        |
+        v
+Enroll Perpl trade API key
+        |
+        v
+Perpl trading WebSocket
+        |
+        v
+OrderRequest (mt: 22)
+        |
+        v
+Perpl Exchange -> Monad
+```
 
-Those stay configurable until verified against Perpl's current deployed exchange interface.
+API keys are trade-scoped and cannot withdraw or transfer funds out. The user signs the one-time API-key enrollment payload; the Ed25519 private key remains with the integration/agent and must be stored securely.
 
 ## Development
 
@@ -63,4 +83,4 @@ npm run build
 npm run dev
 ```
 
-Set `MONAD_RPC_URL` only if a custom RPC is required.
+Set `MONAD_RPC_URL`, `PERPL_API_URL`, or `PERPL_WS_URL` only when using custom endpoints.
