@@ -23,6 +23,10 @@ export function encodeCreateAccount(amountCNS: bigint) {
   return encodeFunctionData({ abi: PERPL_EXCHANGE_ABI, functionName: "createAccount", args: [amountCNS] });
 }
 
+export function encodeCreateAccountThroughDelegatedAccount(exchange: Address, amountCNS: bigint) {
+  return encodeFunctionData({ abi: [{ type: "function", name: "execute", stateMutability: "payable", inputs: [{ name: "target", type: "address" }, { name: "data", type: "bytes" }], outputs: [{ type: "bytes" }] }] as const, functionName: "execute", args: [exchange, encodeCreateAccount(amountCNS)] });
+}
+
 export async function createPerplAccountDirect(params: { walletClient: WalletClient; owner: Address; exchange: Address; amountCNS: bigint }) {
   return params.walletClient.writeContract({ address: params.exchange, abi: PERPL_EXCHANGE_ABI, functionName: "createAccount", args: [params.amountCNS], account: params.owner });
 }
