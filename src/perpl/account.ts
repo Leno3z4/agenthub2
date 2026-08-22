@@ -11,6 +11,10 @@ export const ERC20_ABI = [
   { type: "function", name: "approve", stateMutability: "nonpayable", inputs: [{ name: "spender", type: "address" }, { name: "amount", type: "uint256" }], outputs: [{ type: "bool" }] },
 ] as const;
 
+export const DELEGATED_ACCOUNT_ABI = [
+  { type: "function", name: "execute", stateMutability: "nonpayable", inputs: [{ name: "target", type: "address" }, { name: "data", type: "bytes" }], outputs: [{ type: "bytes" }] },
+] as const;
+
 export async function getPerplAccountId(publicClient: PublicClient, account: Address, exchange: Address) {
   return publicClient.readContract({ address: exchange, abi: PERPL_EXCHANGE_ABI, functionName: "getAccountByAddr", args: [account] });
 }
@@ -23,8 +27,33 @@ export function encodeCreateAccount(amountCNS: bigint) {
   return encodeFunctionData({ abi: PERPL_EXCHANGE_ABI, functionName: "createAccount", args: [amountCNS] });
 }
 
+export function encodeDelegatedExecute(target: Address, data: `0x${string}`) {
+  return encodeFunctionData({ abi: DELEGATED_ACCOUNT_ABI, functionName: "execute", args: [target, data] });
+}
+
+export function encodeApproveThroughDelegatedAccount(exchange: Address, amountCNS: bigint) {
+  return encodeDelegatedExecute(exchange, encodeApprove(exchange, amountCNS));
+}
+
 export function encodeCreateAccountThroughDelegatedAccount(exchange: Address, amountCNS: bigint) {
-  return encodeFunctionData({ abi: [{ type: "function", name: "execute", stateMutability: "payable", inputs: [{ name: "target", type: "address" }, { name: "data", type: "bytes" }], outputs: [{ type: "bytes" }] }] as const, functionName: "execute", args: [exchange, encodeCreateAccount(amountCNS)] });
+  return encodeDelegatedExecute(exchange, encodeCreateAccount(amountCNS));
+}
+
+/** Owner submits an owner-authorized execute call; the operator is not involved. */
+export async function executeFromOwner(params: {
+  walletClient: WalletClient;
+  owner: Address;
+  delegatedAccount: Address;
+  target: Address;
+  data: `0x${string}`;
+}) {
+  return params.walletClient.writeContract({
+    address: params.delegatedAccount,
+    abi: DELEGATED_ACCOUNT_ABI,
+    functionName: "execute",
+    args: [params.target, params.data],
+    account: params.owner,
+  });
 }
 
 export async function createPerplAccountDirect(params: { walletClient: WalletClient; owner: Address; exchange: Address; amountCNS: bigint }) {
