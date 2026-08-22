@@ -13,6 +13,7 @@ export function getPerplContext(): Promise<PerplContext> {
 }
 
 export async function getMarket(marketId: number) {
-  const context = await getPerplContext();
-  return context.markets.find((market) => market.id === marketId) ?? null;
+  const market = (await getPerplContext()).markets.find((item) => item.id === marketId);
+  if (!market) throw new Error(`Unknown Perpl market: ${marketId}`);
+  return market;
 }
