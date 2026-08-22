@@ -20,9 +20,9 @@ export interface PerplPayloadResponse {
   mac: string;
 }
 
-export function generateApiKeyMaterial(): PerplApiKeyMaterial {
+export async function generateApiKeyMaterial(): Promise<PerplApiKeyMaterial> {
   const privateKey = randomBytes(32);
-  const publicKey = ed.getPublicKey(privateKey);
+  const publicKey = await ed.getPublicKeyAsync(privateKey);
   return {
     privateKey,
     publicKey: `0x${Buffer.from(publicKey).toString("hex")}` as Hex,
@@ -57,9 +57,9 @@ export function getApiKeyProofDigest(payload: PerplPayloadResponse["typed_data"]
   const { EIP712Domain: _ignored, ...types } = payload.types;
   return hashTypedData({
     domain: payload.domain as never,
-    types,
+    types: types as never,
     primaryType: payload.primaryType as never,
-    message: payload.message,
+    message: payload.message as never,
   });
 }
 
