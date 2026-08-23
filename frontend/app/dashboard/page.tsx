@@ -3,6 +3,7 @@ import { AgentStatus } from "../../components/AgentStatus";
 import { DepositPanel } from "../../components/DepositPanel";
 import { Positions } from "../../components/Positions";
 import { KillSwitch } from "../../components/KillSwitch";
+import { AgentIdentity } from "../../components/AgentIdentity";
 
 export default function DashboardPage() {
   return (
@@ -33,7 +34,7 @@ export default function DashboardPage() {
           <KillSwitch />
         </div>
 
-        <AgentStatus />
+        <AgentIdentity />
 
         <section className="dashboard-grid">
           <DepositPanel />
