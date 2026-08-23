@@ -2,6 +2,10 @@
 
 import { useAccount, useConnect, useDisconnect } from "wagmi";
 
+function shortenAddress(address: string) {
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
 export function WalletButton() {
   const { address, isConnected } = useAccount();
   const { connect, connectors, isPending } = useConnect();
@@ -9,9 +13,12 @@ export function WalletButton() {
 
   if (isConnected && address) {
     return (
-      <button className="wallet-button" onClick={() => disconnect()}>
+      <button
+        className="wallet-button"
+        onClick={() => disconnect()}
+      >
         <span className="wallet-dot" />
-        {address.slice(0, 6)}...{address.slice(-4)}
+        {shortenAddress(address)}
       </button>
     );
   }
@@ -19,11 +26,14 @@ export function WalletButton() {
   return (
     <button
       className="wallet-button"
+      disabled={isPending}
       onClick={() => {
         const connector = connectors[0];
-        if (connector) connect({ connector });
+
+        if (connector) {
+          connect({ connector });
+        }
       }}
-      disabled={isPending}
     >
       <span className="wallet-dot" />
       {isPending ? "Connecting..." : "Connect wallet"}
