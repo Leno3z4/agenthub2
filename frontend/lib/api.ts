@@ -1,5 +1,6 @@
 const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://agenthub-g0m8.onrender.com";
 
 async function request<T>(
   path: string,
@@ -11,11 +12,14 @@ async function request<T>(
       "Content-Type": "application/json",
       ...(options.headers || {}),
     },
+    cache: "no-store",
   });
 
   if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || `API request failed: ${response.status}`);
+    const body = await response.text();
+    throw new Error(
+      body || `Request failed with status ${response.status}`,
+    );
   }
 
   return response.json();
@@ -26,5 +30,7 @@ export function getAgentStatus(walletAddress: string) {
 }
 
 export function getDelegatedAccount(walletAddress: string) {
-  return request(`/agent/delegated-account/${walletAddress}`);
+  return request(
+    `/agent/delegated-account/${walletAddress}`,
+  );
 }
