@@ -15,12 +15,6 @@ export const agentHubChain = defineChain({
       http: ["https://rpc.monad.xyz"],
     },
   },
-  blockExplorers: {
-    default: {
-      name: "Monad Explorer",
-      url: "https://monadscan.com",
-    },
-  },
 });
 
 export const wagmiConfig = createConfig({
