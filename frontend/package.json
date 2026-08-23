@@ -1,9 +1,0 @@
-{
-  "name": "alias-monad-ui",
-  "private": true,
-  "version": "0.1.0",
-  "type": "module",
-  "scripts": { "dev": "vite", "build": "tsc -b && vite build", "preview": "vite preview" },
-  "dependencies": { "@vitejs/plugin-react": "latest", "vite": "latest", "typescript": "latest", "react": "latest", "react-dom": "latest", "viem": "latest" },
-  "devDependencies": {"@types/react": "^19.1.10","@types/react-dom": "^19.1.7"}
-}
