@@ -3,7 +3,7 @@ import { assertIdentityActive, getAgentById, type AgentIdentity } from "./identi
 import { findCredentialByHash, findIdentityByAccessHash, insertAccessKey, insertCredential, revokeDbAccessKey, revokeDbCredential } from "../db/repositories.js";
 
 export interface AgentCredential {
-  id: string; agentId: string; identityId: string; owner: string; delegatedAccount: string;
+  id: string; agentId: string; identityId: string; connectionId?: string; connector?: string; owner: string; delegatedAccount: string;
   scopes: readonly string[]; expiresAt: number; revoked: boolean; tokenHash: string;
 }
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
@@ -24,9 +24,7 @@ export async function authenticateIdentityAccessKey(token: string) {
   return identity;
 }
 
-export async function revokeIdentityAccessKey(id: string, identityId: string) {
-  return revokeDbAccessKey(id, identityId);
-}
+export async function revokeIdentityAccessKey(id: string, identityId: string) { return revokeDbAccessKey(id, identityId); }
 
 export async function issueAgentCredential(input: { agentId: string; identityId?: string; scopes?: string[]; ttlMs?: number }) {
   const agent = await getAgentById(input.agentId);
@@ -37,14 +35,13 @@ export async function issueAgentCredential(input: { agentId: string; identityId?
 
   const token = secret("ah2_agent");
   const expiresAt = Date.now() + Math.min(input.ttlMs ?? 86_400_000, 86_400_000);
+  const connectionId = `conn_${randomBytes(16).toString("hex")}`;
   const credential: AgentCredential = {
-    id: `cred_${randomBytes(16).toString("hex")}`,
-    agentId: agent.id, identityId: identity.id,
+    id: `cred_${randomBytes(16).toString("hex")}`, agentId: agent.id, identityId: identity.id, connectionId,
     owner: identity.owner.toLowerCase(), delegatedAccount: identity.delegatedAccount.toLowerCase(),
-    scopes: Object.freeze(input.scopes ?? ["trade:read", "trade:write", "position:close"]),
-    expiresAt, revoked: false, tokenHash: hash(token),
+    scopes: Object.freeze(input.scopes ?? ["trade:read", "trade:write", "position:close"]), expiresAt, revoked: false, tokenHash: hash(token),
   };
-  await insertCredential({ credential, connectionId: `conn_${randomBytes(16).toString("hex")}` });
+  await insertCredential({ credential, connectionId, connector: "perpl", capabilities: credential.scopes });
   return { id: credential.id, token, expiresAt, scopes: credential.scopes, identityId: identity.id, agentId: agent.id };
 }
 
@@ -54,6 +51,4 @@ export async function authenticateAgent(token: string) {
   return credential;
 }
 
-export async function revokeAgentCredential(id: string, identityId?: string) {
-  return revokeDbCredential(id, identityId);
-}
+export async function revokeAgentCredential(id: string, identityId?: string) { return revokeDbCredential(id, identityId); }
