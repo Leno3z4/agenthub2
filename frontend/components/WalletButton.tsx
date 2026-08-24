@@ -1,17 +1,37 @@
 "use client";
 
-import { useAccount, useConnect, useDisconnect } from "wagmi";
+import {
+  useAccount,
+  useDisconnect,
+  useSwitchChain,
+  useConnect,
+} from "wagmi";
+import { agentHubChain } from "../lib/wagmi";
 
 function shortenAddress(address: string) {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
 export function WalletButton() {
-  const { address, isConnected } = useAccount();
-  const { connect, connectors, isPending } = useConnect();
+  const { address, isConnected, chainId } = useAccount();
   const { disconnect } = useDisconnect();
+  const { switchChain } = useSwitchChain();
+  const { connect, connectors, isPending } = useConnect();
 
   if (isConnected && address) {
+    if (chainId !== agentHubChain.id) {
+      return (
+        <button
+          className="wallet-button"
+          onClick={() =>
+            switchChain({ chainId: agentHubChain.id })
+          }
+        >
+          Switch to Monad
+        </button>
+      );
+    }
+
     return (
       <button
         className="wallet-button"
@@ -23,13 +43,13 @@ export function WalletButton() {
     );
   }
 
+  const connector = connectors[0];
+
   return (
     <button
       className="wallet-button"
-      disabled={isPending}
+      disabled={isPending || !connector}
       onClick={() => {
-        const connector = connectors[0];
-
         if (connector) {
           connect({ connector });
         }
