@@ -23,8 +23,12 @@ export class PerplTradingWs {
 
   constructor(private readonly credentials: PerplTradingCredentials) {}
 
+  isOpen(): boolean {
+    return this.ws?.readyState === WebSocket.OPEN;
+  }
+
   async connect(): Promise<void> {
-    if (this.ws?.readyState === WebSocket.OPEN) return;
+    if (this.isOpen()) return;
 
     this.ws = new WebSocket(`${WS_URL}/ws/v1/trading`);
     await new Promise<void>((resolve, reject) => {
@@ -54,21 +58,13 @@ export class PerplTradingWs {
     await this.connect();
     const rq = input.rq ?? ++this.requestId;
     this.requestId = Math.max(this.requestId, rq);
-    const payload: PerplOrderRequest = {
-      ...input,
-      mt: 22,
-      rq,
-      lb: input.lb ?? 0,
-    };
+    const payload: PerplOrderRequest = { ...input, mt: 22, rq, lb: input.lb ?? 0 };
     this.ws!.send(JSON.stringify(payload));
   }
 
   async subscribe(streams: string[]): Promise<void> {
     await this.connect();
-    this.ws!.send(JSON.stringify({
-      mt: 5,
-      subs: streams.map((stream) => ({ stream, subscribe: true })),
-    }));
+    this.ws!.send(JSON.stringify({ mt: 5, subs: streams.map((stream) => ({ stream, subscribe: true })) }));
   }
 
   close(): void {
@@ -81,14 +77,6 @@ export class PerplTradingWs {
     const nonce = randomBytes(16).toString("base64url");
     const canonical = [CHAIN_ID, "trading-ws-signin", timestamp, nonce].join("\n");
     const signature = await ed.signAsync(Buffer.from(canonical), this.credentials.privateKey);
-
-    this.ws!.send(JSON.stringify({
-      mt: 29,
-      chain_id: CHAIN_ID,
-      api_key: this.credentials.apiKey,
-      timestamp,
-      nonce,
-      signature: Buffer.from(signature).toString("base64url"),
-    }));
+    this.ws!.send(JSON.stringify({ mt: 29, chain_id: CHAIN_ID, api_key: this.credentials.apiKey, timestamp, nonce, signature: Buffer.from(signature).toString("base64url") }));
   }
 }
