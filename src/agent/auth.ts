@@ -25,10 +25,7 @@ interface AccessKey {
 const credentials = new Map<string, AgentCredential>();
 const accessKeys = new Map<string, AccessKey>();
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
-
-function secret(prefix: string): string {
-  return `${prefix}_${randomBytes(32).toString("base64url")}`;
-}
+const secret = (prefix: string) => `${prefix}_${randomBytes(32).toString("base64url")}`;
 
 function equalHash(a: string, b: string): boolean {
   const left = Buffer.from(a, "hex");
@@ -55,21 +52,20 @@ export function authenticateIdentityAccessKey(token: string): AgentIdentity {
   const tokenHash = hash(token);
   for (const accessKey of accessKeys.values()) {
     if (!equalHash(accessKey.tokenHash, tokenHash)) continue;
-    if (accessKey.revoked) throw new Error("Identity access key revoked");
-    if (Date.now() >= accessKey.expiresAt) throw new Error("Identity access key expired");
+    if (accessKey.revoked || Date.now() >= accessKey.expiresAt) throw new Error("Invalid identity access key");
     return assertIdentityActive(accessKey.identityId);
   }
   throw new Error("Invalid identity access key");
 }
 
-export function revokeIdentityAccessKey(id: string): boolean {
+export function revokeIdentityAccessKey(id: string, identityId: string): boolean {
   const key = accessKeys.get(id);
-  if (!key) return false;
+  if (!key || key.identityId !== identityId) return false;
   key.revoked = true;
   return true;
 }
 
-export function issueAgentCredential(input: { agentId: string; identityId?: string; owner?: string; delegatedAccount?: string; scopes?: string[]; ttlMs?: number }) {
+export function issueAgentCredential(input: { agentId: string; identityId?: string; scopes?: string[]; ttlMs?: number }) {
   const agent = getAgentById(input.agentId);
   const identityId = input.identityId ?? agent?.identityId;
   if (!identityId) throw new Error("Agent identity is required");
@@ -96,20 +92,18 @@ export function authenticateAgent(token: string): AgentCredential {
   const tokenHash = hash(token);
   for (const credential of credentials.values()) {
     if (!equalHash(credential.tokenHash, tokenHash)) continue;
-    if (credential.revoked) throw new Error("Agent credential revoked");
-    if (Date.now() >= credential.expiresAt) throw new Error("Agent credential expired");
+    if (credential.revoked || Date.now() >= credential.expiresAt) throw new Error("Invalid agent credential");
     const identity = getIdentityById(credential.identityId);
-    if (!identity || identity.status !== "active") throw new Error("Agent identity is not active");
     const agent = getAgentById(credential.agentId);
-    if (!agent || agent.status !== "active" || agent.identityId !== credential.identityId) throw new Error("Agent is not active");
+    if (!identity || identity.status !== "active" || !agent || agent.status !== "active" || agent.identityId !== credential.identityId) throw new Error("Invalid agent credential");
     return credential;
   }
   throw new Error("Invalid agent credential");
 }
 
-export function revokeAgentCredential(id: string) {
+export function revokeAgentCredential(id: string, identityId?: string) {
   const credential = credentials.get(id);
-  if (!credential) return false;
+  if (!credential || (identityId && credential.identityId !== identityId)) return false;
   credential.revoked = true;
   return true;
 }
