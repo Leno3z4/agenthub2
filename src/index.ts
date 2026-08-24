@@ -4,6 +4,7 @@ import { createPublicClient, http, type Address, type Hex } from "viem";
 import { getPerplContext } from "./perpl/api.js";
 import { verifyPerplDeployment } from "./perpl/client.js";
 import { handlePerplRoute } from "./perpl/routes.js";
+import { handlePerplAccountRoute } from "./perpl/account-route.js";
 import { getPerplAccountState } from "./perpl/account-state.js";
 import { checkDelegatedAccount } from "./frontend/delegated-account.js";
 import { monad } from "./config.js";
@@ -21,6 +22,7 @@ const server = createServer(async (req, res) => {
   try {
     if (await handlePerplRoute(req, res)) return;
     if (req.method === "GET" && req.url === "/health") return json(res, 200, { ok: true });
+    if (await handlePerplAccountRoute(req, res, publicClient)) return;
     if (req.method === "GET" && req.url === "/api/perpl/context") { try { return json(res, 200, await getPerplContext()); } catch { return json(res, 502, { error: "Perpl unavailable" }); } }
     if (req.method === "GET" && req.url === "/api/agent/perpl/account") {
       if (limited(req, res, "agent-perpl-account", 60, 60_000)) return;
