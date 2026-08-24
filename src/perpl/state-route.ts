@@ -22,7 +22,20 @@ export async function handlePerplStateRoute(req: IncomingMessage, res: ServerRes
   try {
     const credential = await authenticateAgent(token);
     const state = await getPerplState(credential.identityId);
-    json(res, 200, { connector: "perpl", connection_id: credential.connectionId ?? null, ...state });
+    json(res, 200, {
+      connector: credential.connector ?? "perpl",
+      connection_id: credential.connectionId ?? null,
+      identity_id: credential.identityId,
+      agent_id: credential.agentId,
+      delegated_account: credential.delegatedAccount,
+      account: state.account,
+      orders: state.orders,
+      positions: state.positions,
+      head_block: state.headBlock,
+      stale: state.stale,
+      sequence_gap: state.sequenceGap,
+      last_message_at: state.lastMessageAt,
+    });
   } catch { json(res, 409, { error: "Perpl state is unavailable" }); }
   return true;
 }
