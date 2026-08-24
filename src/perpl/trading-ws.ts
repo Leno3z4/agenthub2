@@ -20,6 +20,7 @@ export class PerplTradingWs {
   private ws?: WebSocket;
   private requestId = 0;
   private sequenceId = 0;
+  private commandTail: Promise<void> = Promise.resolve();
   private listeners = new Set<(message: PerplWsMessage) => void>();
   constructor(private readonly credentials: PerplTradingCredentials) {}
   isOpen(): boolean { return this.ws?.readyState === WebSocket.OPEN; }
@@ -50,15 +51,21 @@ export class PerplTradingWs {
   nextSequenceId(): number { return ++this.sequenceId; }
 
   async placeOrder(input: PlaceOrderInput): Promise<number> {
-    await this.connect();
-    const rq = input.rq ?? this.nextRequestId();
-    this.requestId = Math.max(this.requestId, rq);
-    const sn = input.sn ?? this.nextSequenceId();
-    this.ws!.send(JSON.stringify({ ...input, mt: 22, rq, sn, lb: input.lb ?? 0 }));
-    return rq;
+    return this.withCommandLock(async () => {
+      await this.connect();
+      const rq = input.rq ?? this.nextRequestId();
+      this.requestId = Math.max(this.requestId, rq);
+      const sn = input.sn ?? this.nextSequenceId();
+      this.ws!.send(JSON.stringify({ ...input, mt: 22, rq, sn, lb: input.lb ?? 0 }));
+      return rq;
+    });
   }
 
   async submitOrder(input: PlaceOrderInput, timeoutMs = 10_000): Promise<PerplOrderResult> {
+    return this.withCommandLock(async () => this.submitOrderUnlocked(input, timeoutMs));
+  }
+
+  private async submitOrderUnlocked(input: PlaceOrderInput, timeoutMs: number): Promise<PerplOrderResult> {
     await this.connect();
     const rq = input.rq ?? this.nextRequestId();
     this.requestId = Math.max(this.requestId, rq);
@@ -97,6 +104,12 @@ export class PerplTradingWs {
   }
 
   close(): void { this.ws?.close(); this.ws = undefined; }
+
+  private withCommandLock<T>(operation: () => Promise<T>): Promise<T> {
+    const run = this.commandTail.then(operation, operation);
+    this.commandTail = run.then(() => undefined, () => undefined);
+    return run;
+  }
 
   private async signIn(): Promise<void> {
     const timestamp = Date.now().toString();
