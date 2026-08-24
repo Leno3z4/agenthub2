@@ -1,5 +1,4 @@
-import { createConfig, http } from "wagmi";
-import { injected } from "wagmi/connectors";
+import { createConfig, custom } from "wagmi";
 import { defineChain } from "viem";
 
 export const agentHubChain = defineChain({
@@ -17,12 +16,16 @@ export const agentHubChain = defineChain({
   },
 });
 
+const injectedProvider =
+  typeof window !== "undefined"
+    ? (window as any).ethereum
+    : undefined;
+
 export const wagmiConfig = createConfig({
   chains: [agentHubChain],
-  connectors: [
-    injected(),
-  ],
   transports: {
-    [agentHubChain.id]: http(),
+    [agentHubChain.id]: custom(
+      injectedProvider,
+    ),
   },
 });
