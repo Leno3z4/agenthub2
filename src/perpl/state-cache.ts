@@ -2,7 +2,7 @@ import type { PerplWsMessage } from "./types.js";
 import { getPerplSession } from "./session.js";
 
 const MAX_MESSAGES_PER_STREAM = 100;
-const cache = new Map<string, PerplWsMessage[]>();
+const cache = new Map<string, { messages: PerplWsMessage[]; lastMessageAt?: number }>();
 const subscriptions = new Map<string, () => void>();
 
 function configuredStreams() {
@@ -11,30 +11,33 @@ function configuredStreams() {
 
 export async function ensurePerplStateSubscription(identityId: string) {
   const streams = configuredStreams();
-  if (!streams.length) return { subscribed: false, streams: [] as string[] };
-  const key = identityId;
-  if (!subscriptions.has(key)) {
+  if (!streams.length) return { subscribed: false, streams: [] as string[], lastMessageAt: undefined };
+  if (!subscriptions.has(identityId)) {
     const session = await getPerplSession(identityId);
     const unsubscribe = session.onMessage((message) => {
       const stream = typeof message.stream === "string" ? message.stream : undefined;
       if (!stream || !streams.includes(stream)) return;
-      const items = cache.get(`${key}:${stream}`) ?? [];
-      items.push(message);
-      if (items.length > MAX_MESSAGES_PER_STREAM) items.splice(0, items.length - MAX_MESSAGES_PER_STREAM);
-      cache.set(`${key}:${stream}`, items);
+      const key = `${identityId}:${stream}`;
+      const state = cache.get(key) ?? { messages: [] as PerplWsMessage[] };
+      state.messages.push(message);
+      state.lastMessageAt = Date.now();
+      if (state.messages.length > MAX_MESSAGES_PER_STREAM) state.messages.splice(0, state.messages.length - MAX_MESSAGES_PER_STREAM);
+      cache.set(key, state);
     });
     await session.subscribe(streams);
-    subscriptions.set(key, unsubscribe);
+    subscriptions.set(identityId, unsubscribe);
   }
-  return { subscribed: true, streams };
+  return { subscribed: true, streams, lastMessageAt: streams.reduce<number | undefined>((latest, stream) => Math.max(latest ?? 0, cache.get(`${identityId}:${stream}`)?.lastMessageAt ?? 0) || latest, undefined) };
 }
 
 export async function getPerplState(identityId: string) {
-  const { subscribed, streams } = await ensurePerplStateSubscription(identityId);
+  const { subscribed, streams, lastMessageAt } = await ensurePerplStateSubscription(identityId);
   return {
     subscribed,
     streams,
-    latest: Object.fromEntries(streams.map((stream) => [stream, (cache.get(`${identityId}:${stream}`) ?? []).at(-1) ?? null])),
+    lastMessageAt: lastMessageAt ?? null,
+    stale: lastMessageAt ? Date.now() - lastMessageAt > Number(process.env.PERPL_STATE_STALE_MS ?? 30_000) : true,
+    latest: Object.fromEntries(streams.map((stream) => [stream, cache.get(`${identityId}:${stream}`)?.messages.at(-1) ?? null])),
   };
 }
 
