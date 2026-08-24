@@ -3,6 +3,7 @@ import { createServer } from "node:http";
 import { createPublicClient, http, type Address, type Hex } from "viem";
 import { getPerplContext } from "./perpl/api.js";
 import { verifyPerplDeployment } from "./perpl/client.js";
+import { handlePerplRoute } from "./perpl/routes.js";
 import { checkDelegatedAccount } from "./frontend/delegated-account.js";
 import { monad } from "./config.js";
 import { consumeIdentityChallenge, getOrCreateIdentity, issueIdentityChallenge, createAgent } from "./agent/identity.js";
@@ -17,6 +18,7 @@ async function body(req: any): Promise<Record<string, unknown>> { const chunks: 
 function bearer(req: any): string | undefined { const value = req.headers.authorization; return typeof value === "string" && value.startsWith("Bearer ") ? value.slice(7).trim() || undefined : undefined; }
 const server = createServer(async (req, res) => {
   try {
+    if (await handlePerplRoute(req, res)) return;
     if (req.method === "GET" && req.url === "/health") return json(res, 200, { ok: true });
     if (req.method === "GET" && req.url === "/api/perpl/context") { try { return json(res, 200, await getPerplContext()); } catch { return json(res, 502, { error: "Perpl unavailable" }); } }
     if (req.method === "POST" && req.url === "/api/identity/challenge") {
