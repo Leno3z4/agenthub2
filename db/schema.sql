@@ -94,7 +94,7 @@ CREATE TABLE IF NOT EXISTS perpl_enrollments (
   expires_at TIMESTAMPTZ NOT NULL,
   processing_at TIMESTAMPTZ,
   consumed_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ NOT NULL
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS perpl_enrollments_identity_idx ON perpl_enrollments(identity_id, expires_at);
 
