@@ -44,7 +44,9 @@ export class PerplTradingWs {
   }
 
   async placeOrderAndWait(input: PlaceOrderInput, timeoutMs = 8_000): Promise<{ rq: number; response?: PerplWsMessage }> {
-    const rq = await this.placeOrder(input);
+    await this.connect();
+    const rq = input.rq ?? ++this.requestId;
+    this.requestId = Math.max(this.requestId, rq);
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => { unsubscribe(); reject(new Error("Perpl order response timeout")); }, timeoutMs);
       const unsubscribe = this.onMessage((message) => {
@@ -53,6 +55,7 @@ export class PerplTradingWs {
         unsubscribe();
         resolve({ rq, response: message });
       });
+      this.ws!.send(JSON.stringify({ ...input, mt: 22, rq, lb: input.lb ?? 0 }));
     });
   }
 
