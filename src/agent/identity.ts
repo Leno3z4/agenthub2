@@ -12,13 +12,11 @@ export async function issueIdentityChallenge(owner: Address, chainId: number) {
   await insertIdentityChallenge({ nonce, owner, message, expiresAt });
   return { message, nonce, expiresAt };
 }
-
 export async function consumeIdentityChallenge(params: { owner: Address; message: string; signature: Hex }): Promise<boolean> {
   const nonceLine = params.message.split("\n").find((line) => line.startsWith("Nonce: ")); const nonce = nonceLine?.slice(7).trim();
   if (!nonce || !await verifyMessage({ address: params.owner, message: params.message, signature: params.signature })) return false;
   return consumeDbChallenge(nonce, params.owner, params.message);
 }
-
 export async function getIdentityById(id: string) { return findIdentityById(id); }
 export async function getIdentityByOwner(owner: Address) { return findIdentityByOwner(owner); }
 export async function getOrCreateIdentity(owner: Address, delegatedAccount: Address) { return upsertIdentity(owner, delegatedAccount); }
@@ -27,6 +25,11 @@ export async function getAgentById(id: string) { return findAgentById(id); }
 
 export async function assertIdentityActive(identityId: string): Promise<AgentIdentity> {
   const identity = await getIdentityById(identityId);
-  if (!identity || identity.status !== "active" || identity.killSwitchEnabled) throw new Error("Agent identity is not active");
+  if (!identity || identity.status !== "active") throw new Error("Agent identity is not active");
+  return identity;
+}
+export async function assertTradingAllowed(identityId: string): Promise<AgentIdentity> {
+  const identity = await assertIdentityActive(identityId);
+  if (identity.killSwitchEnabled) throw new Error("Emergency kill switch is active; new trading is disabled");
   return identity;
 }
