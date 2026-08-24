@@ -11,27 +11,54 @@ function json(res: ServerResponse, status: number, body: unknown, retryAfterMs =
 function bearer(req: IncomingMessage) { const value = req.headers.authorization; return typeof value === "string" && value.startsWith("Bearer ") ? value.slice(7).trim() : ""; }
 function numberField(value: unknown, name: string, integer = false) { const n = typeof value === "number" ? value : Number(value); if (!Number.isFinite(n) || (integer && !Number.isInteger(n))) throw new Error(`Invalid ${name}`); return n; }
 async function audit(input: Parameters<typeof recordAuditEvent>[0]) { try { await recordAuditEvent(input); } catch { /* audit failure must not alter trading result */ } }
+async function accountIdFor(credential: Awaited<ReturnType<typeof authenticateAgent>>, publicClient: PublicClient) {
+  const exchange = process.env.PERPL_EXCHANGE_ADDRESS as Address | undefined; if (!exchange) throw new Error("Perpl exchange is not configured");
+  const accountId = await getPerplAccountId(publicClient, credential.delegatedAccount as Address, exchange);
+  if (accountId === 0n) throw new Error("Perpl account is not initialized");
+  if (accountId > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error("Perpl account ID is outside the supported numeric range");
+  return accountId;
+}
 
 export async function handlePerplOrderRoute(req: IncomingMessage, res: ServerResponse, publicClient: PublicClient, body: Record<string, unknown>): Promise<boolean> {
-  if (req.method !== "POST" || req.url !== "/api/agent/perpl/order") return false;
+  if (req.method !== "POST" || !["/api/agent/perpl/order", "/api/agent/perpl/order/cancel", "/api/agent/perpl/order/modify"].includes(req.url ?? "")) return false;
   const limit = rateLimit(`agent-perpl-order:${clientIp(req.headers)}`, 30, 60_000); if (!limit.allowed) { json(res, 429, { error: "Too many requests" }, limit.retryAfterMs); return true; }
   const token = bearer(req); if (!token) { json(res, 401, { error: "Agent credential required" }); return true; }
   let identityId: string | undefined; let agentId: string | undefined; let connectionId: string | undefined;
   try {
     const credential = await authenticateAgent(token); identityId = credential.identityId; agentId = credential.agentId; connectionId = credential.connectionId;
-    const market = numberField(body.mkt, "market", true); const type = numberField(body.t, "order type", true) as PerplOrderType; const size = numberField(body.s, "size"); const leverage = numberField(body.lv, "leverage"); const flags = numberField(body.fl, "flags", true) as PerplOrderFlags;
-    if (market < 0) throw new Error("Invalid market"); if (type < 1 || type > 7) throw new Error("Invalid order type"); if (size <= 0) throw new Error("Size must be positive"); if (leverage <= 0) throw new Error("Leverage must be positive"); if (![0, 1, 2, 4].includes(flags)) throw new Error("Invalid order flags");
-    const exchange = process.env.PERPL_EXCHANGE_ADDRESS as Address | undefined; if (!exchange) throw new Error("Perpl exchange is not configured");
-    const accountId = await getPerplAccountId(publicClient, credential.delegatedAccount as Address, exchange); if (accountId === 0n) throw new Error("Perpl account is not initialized");
-    if (accountId > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error("Perpl account ID is outside the supported numeric range");
-    const input = { mkt: market, acc: Number(accountId), t: type, s: size, lv: leverage, fl: flags,
-      ...(body.p !== undefined ? { p: numberField(body.p, "price") } : {}), ...(body.a !== undefined ? { a: String(body.a) } : {}), ...(body.ms !== undefined ? { ms: numberField(body.ms, "market slippage", true) } : {}), ...(body.tif !== undefined ? { tif: numberField(body.tif, "time in force", true) } : {}), ...(body.tp !== undefined ? { tp: numberField(body.tp, "take profit") } : {}), ...(body.tpc !== undefined ? { tpc: numberField(body.tpc, "take profit config") } : {}), ...(body.tr !== undefined ? { tr: numberField(body.tr, "stop loss") } : {}), ...(body.lp !== undefined ? { lp: numberField(body.lp, "limit price") } : {}), ...(body.bf !== undefined ? { bf: numberField(body.bf, "builder fee") } : {}) } as const;
-    const result = await getPerplSession(credential.identityId).then((session) => session.placeOrderAndWait(input, 10_000));
-    await audit({ identityId, agentId, connectionId, action: "perpl.order", outcome: "success", requestId: String(result.rq), ipAddress: clientIp(req.headers), userAgent: typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : undefined, metadata: { market, orderType: type, size, leverage, responseMt: result.response?.mt ?? null } });
-    json(res, 200, { connector: "perpl", perpl_account_id: accountId.toString(), request_id: result.rq, response: result.response ?? null });
+    const accountId = await accountIdFor(credential, publicClient); const mkt = numberField(body.mkt, "market", true);
+    if (mkt < 0) throw new Error("Invalid market");
+    const session = await getPerplSession(credential.identityId);
+    const kind = req.url === "/api/agent/perpl/order/cancel" ? "cancel" : req.url === "/api/agent/perpl/order/modify" ? "modify" : "place";
+    if (kind === "cancel") {
+      const oid = numberField(body.oid, "order ID", true); if (oid < 0) throw new Error("Invalid order ID");
+      const lb = numberField(body.lb, "last execution block", true); if (lb < 1) throw new Error("Invalid last execution block");
+      const result = await session.cancelOrder({ mkt: mkt, acc: Number(accountId), oid, lb });
+      await audit({ identityId, agentId, connectionId, action: "perpl.order.cancel", outcome: "success", requestId: String(result.rq), ipAddress: clientIp(req.headers), userAgent: typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : undefined, metadata: { market: mkt, orderId: oid, responseMt: result.outcome?.mt ?? null } });
+      return json(res, 200, { connector: "perpl", perpl_account_id: accountId.toString(), request_id: result.rq, response: result.outcome ?? null }) as unknown as true;
+    }
+    if (kind === "modify") {
+      const oid = numberField(body.oid, "order ID", true); if (oid < 0) throw new Error("Invalid order ID");
+      const size = numberField(body.s, "size"); if (size <= 0) throw new Error("Size must be positive");
+      const leverage = numberField(body.lv, "leverage"); if (leverage <= 0) throw new Error("Leverage must be positive");
+      const flags = numberField(body.fl ?? 0, "flags", true) as PerplOrderFlags; if (![0, 1, 2, 4].includes(flags)) throw new Error("Invalid order flags");
+      const lb = numberField(body.lb, "last execution block", true); if (lb < 1) throw new Error("Invalid last execution block");
+      const input = { mkt: mkt, acc: Number(accountId), oid, t: 7 as PerplOrderType, s: size, lv: leverage, fl: flags, lb,
+        ...(body.p !== undefined ? { p: numberField(body.p, "price") } : {}), ...(body.tif !== undefined ? { tif: numberField(body.tif, "time in force", true) } : {}) };
+      const result = await session.submitOrder(input, 10_000);
+      await audit({ identityId, agentId, connectionId, action: "perpl.order.modify", outcome: "success", requestId: String(result.rq), ipAddress: clientIp(req.headers), userAgent: typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : undefined, metadata: { market: mkt, orderId: oid, responseMt: result.outcome?.mt ?? null } });
+      return json(res, 200, { connector: "perpl", perpl_account_id: accountId.toString(), request_id: result.rq, response: result.outcome ?? null }) as unknown as true;
+    }
+    const type = numberField(body.t, "order type", true) as PerplOrderType; const size = numberField(body.s, "size"); const leverage = numberField(body.lv, "leverage"); const flags = numberField(body.fl, "flags", true) as PerplOrderFlags;
+    if (type < 1 || type > 7) throw new Error("Invalid order type"); if (size <= 0) throw new Error("Size must be positive"); if (leverage <= 0) throw new Error("Leverage must be positive"); if (![0, 1, 2, 4].includes(flags)) throw new Error("Invalid order flags");
+    const input = { mkt, acc: Number(accountId), t: type, s: size, lv: leverage, fl: flags,
+      ...(body.p !== undefined ? { p: numberField(body.p, "price") } : {}), ...(body.a !== undefined ? { a: String(body.a) } : {}), ...(body.ms !== undefined ? { ms: numberField(body.ms, "market slippage", true) } : {}), ...(body.tif !== undefined ? { tif: numberField(body.tif, "time in force", true) } : {}), ...(body.tp !== undefined ? { tp: numberField(body.tp, "take profit") } : {}), ...(body.tpc !== undefined ? { tpc: numberField(body.tpc, "take profit config") } : {}), ...(body.tr !== undefined ? { tr: numberField(body.tr, "stop loss") } : {}), ...(body.lp !== undefined ? { lp: numberField(body.lp, "limit price") } : {}), ...(body.bf !== undefined ? { bf: numberField(body.bf, "builder fee") } : {}) };
+    const result = await session.submitOrder(input, 10_000);
+    await audit({ identityId, agentId, connectionId, action: "perpl.order", outcome: "success", requestId: String(result.rq), ipAddress: clientIp(req.headers), userAgent: typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : undefined, metadata: { market: mkt, orderType: type, size, leverage, responseMt: result.outcome?.mt ?? null } });
+    json(res, 200, { connector: "perpl", perpl_account_id: accountId.toString(), request_id: result.rq, response: result.outcome ?? null });
   } catch (error) {
     await audit({ identityId, agentId, connectionId, action: "perpl.order", outcome: "failure", ipAddress: clientIp(req.headers), userAgent: typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : undefined, metadata: { reason: error instanceof Error ? error.message.replace(/token|key|secret|private/gi, "redacted") : "unknown" } });
-    const message = error instanceof Error && /Invalid|positive|initialized|configured/.test(error.message) ? error.message : "Unable to place Perpl order"; json(res, 400, { error: message });
+    const message = error instanceof Error && /Invalid|positive|initialized|configured/.test(error.message) ? error.message : "Unable to process Perpl order"; json(res, 400, { error: message });
   }
   return true;
 }
