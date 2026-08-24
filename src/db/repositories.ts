@@ -1,30 +1,15 @@
 import { randomBytes } from "node:crypto";
-import type { PoolClient } from "pg";
-import type { Address } from "viem";
-import { getDb } from "./client.js";
 import type { AgentCredential } from "../agent/auth.js";
 import type { AgentIdentity, AgentRecord } from "../agent/identity.js";
+import { getDb } from "./client.js";
+import type { Address } from "viem";
 
-type QueryRunner = { query: PoolClient["query"] };
-const db: QueryRunner = getDb();
+function identity(row: any): AgentIdentity { return { id: row.id, owner: row.owner_address, delegatedAccount: row.delegated_account, status: row.status, createdAt: new Date(row.created_at).toISOString() }; }
+function agent(row: any): AgentRecord { return { id: row.id, identityId: row.identity_id, name: row.name, status: row.status, createdAt: new Date(row.created_at).toISOString() }; }
+const randomId = (prefix: string) => `${prefix}_${randomBytes(16).toString("hex")}`;
 
-function identity(row: any): AgentIdentity {
-  return { id: row.id, owner: row.owner_address, delegatedAccount: row.delegated_account, status: row.status, createdAt: new Date(row.created_at).toISOString() };
-}
-function agent(row: any): AgentRecord {
-  return { id: row.id, identityId: row.identity_id, name: row.name, status: row.status, createdAt: new Date(row.created_at).toISOString() };
-}
-function randomId(prefix: string): string { return `${prefix}_${randomBytes(16).toString("hex")}`; }
-
-export async function findIdentityById(id: string): Promise<AgentIdentity | undefined> {
-  const result = await db.query("SELECT * FROM identities WHERE id = $1 LIMIT 1", [id]);
-  return result.rowCount ? identity(result.rows[0]) : undefined;
-}
-
-export async function findIdentityByOwner(owner: Address): Promise<AgentIdentity | undefined> {
-  const result = await db.query("SELECT * FROM identities WHERE owner_address = $1 LIMIT 1", [owner.toLowerCase()]);
-  return result.rowCount ? identity(result.rows[0]) : undefined;
-}
+export async function findIdentityById(id: string) { const result = await getDb().query("SELECT * FROM identities WHERE id = $1 LIMIT 1", [id]); return result.rowCount ? identity(result.rows[0]) : undefined; }
+export async function findIdentityByOwner(owner: Address) { const result = await getDb().query("SELECT * FROM identities WHERE owner_address = $1 LIMIT 1", [owner.toLowerCase()]); return result.rowCount ? identity(result.rows[0]) : undefined; }
 
 export async function upsertIdentity(owner: Address, delegatedAccount: Address): Promise<AgentIdentity> {
   const existing = await findIdentityByOwner(owner);
@@ -33,74 +18,41 @@ export async function upsertIdentity(owner: Address, delegatedAccount: Address):
     if (existing.delegatedAccount.toLowerCase() !== delegatedAccount.toLowerCase()) throw new Error("Delegated account does not match AgentHub identity");
     return existing;
   }
-  const id = randomId("id");
-  const result = await db.query(
-    "INSERT INTO identities (id, owner_address, delegated_account) VALUES ($1, $2, $3) RETURNING *",
-    [id, owner.toLowerCase(), delegatedAccount.toLowerCase()],
-  );
+  const result = await getDb().query("INSERT INTO identities (id, owner_address, delegated_account) VALUES ($1, $2, $3) ON CONFLICT (owner_address) DO UPDATE SET updated_at = NOW() RETURNING *", [randomId("id"), owner.toLowerCase(), delegatedAccount.toLowerCase()]);
   return identity(result.rows[0]);
 }
 
-export async function findAgentById(id: string): Promise<AgentRecord | undefined> {
-  const result = await db.query("SELECT * FROM agents WHERE id = $1 LIMIT 1", [id]);
-  return result.rowCount ? agent(result.rows[0]) : undefined;
-}
-
+export async function findAgentById(id: string) { const result = await getDb().query("SELECT * FROM agents WHERE id = $1 LIMIT 1", [id]); return result.rowCount ? agent(result.rows[0]) : undefined; }
 export async function createDbAgent(identityId: string, name: string): Promise<AgentRecord> {
-  const id = randomId("agent");
-  const result = await db.query(
-    "INSERT INTO agents (id, identity_id, name) SELECT $1, id, $2 FROM identities WHERE id = $3 AND status = 'active' RETURNING *",
-    [id, name.trim().slice(0, 64) || "Agent", identityId],
-  );
+  const result = await getDb().query("INSERT INTO agents (id, identity_id, name) SELECT $1, id, $2 FROM identities WHERE id = $3 AND status = 'active' RETURNING *", [randomId("agent"), name.trim().slice(0, 64) || "Agent", identityId]);
   if (!result.rowCount) throw new Error("Agent identity is not active");
   return agent(result.rows[0]);
 }
 
-export async function insertAccessKey(params: { id: string; identityId: string; tokenHash: string; expiresAt: number }): Promise<void> {
-  await db.query(
-    "INSERT INTO access_keys (id, identity_id, token_hash, expires_at) VALUES ($1, $2, $3, to_timestamp($4 / 1000.0))",
-    [params.id, params.identityId, params.tokenHash, params.expiresAt],
-  );
-}
-
-export async function findIdentityByAccessHash(tokenHash: string): Promise<AgentIdentity | undefined> {
-  const result = await db.query(
-    "SELECT i.* FROM access_keys k JOIN identities i ON i.id = k.identity_id WHERE k.token_hash = $1 AND k.revoked_at IS NULL AND k.expires_at > NOW() AND i.status = 'active' LIMIT 1",
-    [tokenHash],
-  );
+export async function insertAccessKey(params: { id: string; identityId: string; tokenHash: string; expiresAt: number }) { await getDb().query("INSERT INTO access_keys (id, identity_id, token_hash, expires_at) VALUES ($1, $2, $3, to_timestamp($4 / 1000.0))", [params.id, params.identityId, params.tokenHash, params.expiresAt]); }
+export async function findIdentityByAccessHash(tokenHash: string) {
+  const result = await getDb().query("SELECT i.* FROM access_keys k JOIN identities i ON i.id = k.identity_id WHERE k.token_hash = $1 AND k.revoked_at IS NULL AND k.expires_at > NOW() AND i.status = 'active' LIMIT 1", [tokenHash]);
   if (!result.rowCount) return undefined;
-  await db.query("UPDATE access_keys SET last_used_at = NOW() WHERE token_hash = $1", [tokenHash]);
+  await getDb().query("UPDATE access_keys SET last_used_at = NOW() WHERE token_hash = $1", [tokenHash]);
   return identity(result.rows[0]);
 }
+export async function revokeDbAccessKey(id: string, identityId: string) { const result = await getDb().query("UPDATE access_keys SET revoked_at = NOW() WHERE id = $1 AND identity_id = $2 AND revoked_at IS NULL", [id, identityId]); return (result.rowCount ?? 0) > 0; }
 
-export async function revokeDbAccessKey(id: string, identityId: string): Promise<boolean> {
-  const result = await db.query("UPDATE access_keys SET revoked_at = NOW() WHERE id = $1 AND identity_id = $2 AND revoked_at IS NULL", [id, identityId]);
-  return (result.rowCount ?? 0) > 0;
-}
-
-export async function insertCredential(params: { credential: AgentCredential; connectionId: string }): Promise<void> {
-  await db.query("BEGIN");
+export async function insertCredential(params: { credential: AgentCredential; connectionId: string; connector: string; capabilities: readonly string[] }) {
+  const client = await getDb().connect();
   try {
-    await db.query("INSERT INTO connections (id, identity_id, agent_id, expires_at) VALUES ($1, $2, $3, to_timestamp($4 / 1000.0))", [params.connectionId, params.credential.identityId, params.credential.agentId, params.credential.expiresAt]);
-    await db.query("INSERT INTO agent_credentials (id, connection_id, agent_id, identity_id, token_hash, scopes, expires_at) VALUES ($1, $2, $3, $4, $5, $6, to_timestamp($7 / 1000.0))", [params.credential.id, params.connectionId, params.credential.agentId, params.credential.identityId, params.credential.tokenHash, params.credential.scopes, params.credential.expiresAt]);
-    await db.query("COMMIT");
-  } catch (error) {
-    await db.query("ROLLBACK");
-    throw error;
-  }
+    await client.query("BEGIN");
+    await client.query("INSERT INTO connections (id, identity_id, agent_id, connector, capabilities, expires_at) VALUES ($1, $2, $3, $4, $5, to_timestamp($6 / 1000.0))", [params.connectionId, params.credential.identityId, params.credential.agentId, params.connector, params.capabilities, params.credential.expiresAt]);
+    await client.query("INSERT INTO agent_credentials (id, connection_id, agent_id, identity_id, token_hash, expires_at) VALUES ($1, $2, $3, $4, $5, to_timestamp($6 / 1000.0))", [params.credential.id, params.connectionId, params.credential.agentId, params.credential.identityId, params.credential.tokenHash, params.credential.expiresAt]);
+    await client.query("COMMIT");
+  } catch (error) { await client.query("ROLLBACK"); throw error; } finally { client.release(); }
 }
 
 export async function findCredentialByHash(tokenHash: string): Promise<AgentCredential | undefined> {
-  const result = await db.query("SELECT c.*, i.owner_address, i.delegated_account FROM agent_credentials c JOIN identities i ON i.id = c.identity_id JOIN agents a ON a.id = c.agent_id WHERE c.token_hash = $1 AND c.revoked_at IS NULL AND c.expires_at > NOW() AND i.status = 'active' AND a.status = 'active' AND a.identity_id = c.identity_id LIMIT 1", [tokenHash]);
+  const result = await getDb().query("SELECT c.*, i.owner_address, i.delegated_account FROM agent_credentials c JOIN identities i ON i.id = c.identity_id JOIN agents a ON a.id = c.agent_id JOIN connections x ON x.id = c.connection_id WHERE c.token_hash = $1 AND c.revoked_at IS NULL AND c.expires_at > NOW() AND x.status = 'active' AND i.status = 'active' AND a.status = 'active' AND a.identity_id = c.identity_id LIMIT 1", [tokenHash]);
   if (!result.rowCount) return undefined;
   const row = result.rows[0];
-  await db.query("UPDATE agent_credentials SET last_used_at = NOW() WHERE id = $1", [row.id]);
-  return { id: row.id, agentId: row.agent_id, identityId: row.identity_id, owner: row.owner_address, delegatedAccount: row.delegated_account, scopes: Object.freeze(row.scopes ?? []), expiresAt: new Date(row.expires_at).getTime(), revoked: false, tokenHash: row.token_hash };
+  await getDb().query("UPDATE agent_credentials SET last_used_at = NOW() WHERE id = $1", [row.id]);
+  return { id: row.id, agentId: row.agent_id, identityId: row.identity_id, owner: row.owner_address, delegatedAccount: row.delegated_account, scopes: Object.freeze([]), expiresAt: new Date(row.expires_at).getTime(), revoked: false, tokenHash: row.token_hash };
 }
-
-export async function revokeDbCredential(id: string, identityId?: string): Promise<boolean> {
-  const result = identityId
-    ? await db.query("UPDATE agent_credentials SET revoked_at = NOW() WHERE id = $1 AND identity_id = $2 AND revoked_at IS NULL", [id, identityId])
-    : await db.query("UPDATE agent_credentials SET revoked_at = NOW() WHERE id = $1 AND revoked_at IS NULL", [id]);
-  return (result.rowCount ?? 0) > 0;
-}
+export async function revokeDbCredential(id: string, identityId?: string) { const result = identityId ? await getDb().query("UPDATE agent_credentials SET revoked_at = NOW() WHERE id = $1 AND identity_id = $2 AND revoked_at IS NULL", [id, identityId]) : await getDb().query("UPDATE agent_credentials SET revoked_at = NOW() WHERE id = $1 AND revoked_at IS NULL", [id]); return (result.rowCount ?? 0) > 0; }
