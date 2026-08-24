@@ -8,10 +8,7 @@ function json(res: ServerResponse, status: number, body: unknown, retryAfterMs =
   res.writeHead(status, { "content-type": "application/json", "cache-control": "no-store" });
   res.end(JSON.stringify(body));
 }
-function bearer(req: IncomingMessage) {
-  const value = req.headers.authorization;
-  return typeof value === "string" && value.startsWith("Bearer ") ? value.slice(7).trim() : "";
-}
+function bearer(req: IncomingMessage) { const value = req.headers.authorization; return typeof value === "string" && /^Bearer\s+/i.test(value) ? value.replace(/^Bearer\s+/i, "").trim() : ""; }
 
 export async function handlePerplStateRoute(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
   if (req.method !== "GET" || req.url !== "/api/agent/perpl/state") return false;
@@ -22,7 +19,10 @@ export async function handlePerplStateRoute(req: IncomingMessage, res: ServerRes
   try {
     const credential = await authenticateAgent(token);
     const state = await getPerplState(credential.identityId);
+    const status = state.sequenceGap ? "sequence_gap" : state.stale ? "stale" : state.account ? "connected" : "disconnected";
     json(res, 200, {
+      status,
+      trading_available: status === "connected",
       connector: credential.connector ?? "perpl",
       connection_id: credential.connectionId ?? null,
       identity_id: credential.identityId,
