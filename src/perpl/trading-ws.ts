@@ -10,6 +10,12 @@ export interface PerplTradingCredentials { apiKey: string; privateKey: Uint8Arra
 export interface PlaceOrderInput extends Omit<PerplOrderRequest, "mt" | "rq" | "lb" | "sn"> { rq?: number; lb?: number; sn?: number }
 export interface PerplOrderResult { rq: number; sn: number; admission?: PerplWsMessage; outcome?: PerplWsMessage }
 
+function extractLastRequestId(message: PerplWsMessage): number | undefined {
+  const root = typeof message.d === "object" && message.d !== null ? message.d as Record<string, unknown> : message as unknown as Record<string, unknown>;
+  const direct = root.lfr;
+  return typeof direct === "number" && Number.isSafeInteger(direct) && direct >= 0 ? direct : undefined;
+}
+
 export class PerplTradingWs {
   private ws?: WebSocket;
   private requestId = 0;
@@ -29,6 +35,10 @@ export class PerplTradingWs {
       ws.on("message", (raw) => {
         let message: PerplWsMessage;
         try { message = JSON.parse(raw.toString()) as PerplWsMessage; } catch { return; }
+        if (message.mt === 19) {
+          const lfr = extractLastRequestId(message);
+          if (lfr !== undefined) this.requestId = Math.max(this.requestId, lfr);
+        }
         for (const listener of this.listeners) listener(message);
       });
       ws.on("close", () => { this.ws = undefined; });
@@ -64,17 +74,26 @@ export class PerplTradingWs {
           return;
         }
         if (message.mt !== 24 || message.rq !== rq) return;
-        clearTimeout(timeout);
-        unsubscribe();
-        resolve({ rq, sn, admission, outcome: message });
+        clearTimeout(timeout); unsubscribe(); resolve({ rq, sn, admission, outcome: message });
       });
       this.ws!.send(JSON.stringify({ ...input, mt: 22, rq, sn, lb: input.lb ?? 0 }));
     });
   }
 
+  async submitOrderWithRetry(input: PlaceOrderInput, timeoutMs = 8_000): Promise<PerplOrderResult> {
+    const rq = input.rq ?? this.nextRequestId();
+    const first = { ...input, rq };
+    try { return await this.submitOrder(first, timeoutMs); }
+    catch (error) {
+      if (!(error instanceof Error) || !/timeout|closed|connect/i.test(error.message)) throw error;
+      this.close();
+      return this.submitOrder(first, timeoutMs);
+    }
+  }
+
   async cancelOrder(params: { mkt: number; acc: number; oid: number; lb: number }, timeoutMs = 10_000): Promise<PerplOrderResult> {
     if (!Number.isInteger(params.oid) || params.oid < 0) throw new Error("Invalid order ID");
-    return this.submitOrder({ mkt: params.mkt, acc: params.acc, oid: params.oid, t: 5, s: 0, fl: 0, lv: 0, lb: params.lb });
+    return this.submitOrderWithRetry({ mkt: params.mkt, acc: params.acc, oid: params.oid, t: 5, s: 0, fl: 0, lv: 0, lb: params.lb }, timeoutMs);
   }
 
   close(): void { this.ws?.close(); this.ws = undefined; }
