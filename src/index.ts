@@ -4,10 +4,11 @@ import { createPublicClient, http, type Address, type Hex } from "viem";
 import { getPerplContext } from "./perpl/api.js";
 import { verifyPerplDeployment } from "./perpl/client.js";
 import { handlePerplRoute } from "./perpl/routes.js";
+import { getPerplAccountState } from "./perpl/account-state.js";
 import { checkDelegatedAccount } from "./frontend/delegated-account.js";
 import { monad } from "./config.js";
 import { consumeIdentityChallenge, getOrCreateIdentity, issueIdentityChallenge, createAgent } from "./agent/identity.js";
-import { authenticateIdentityAccessKey, issueAgentCredential, issueIdentityAccessKey, revokeIdentityAccessKey } from "./agent/auth.js";
+import { authenticateAgent, authenticateIdentityAccessKey, issueAgentCredential, issueIdentityAccessKey, revokeIdentityAccessKey } from "./agent/auth.js";
 import { clientIp, rateLimit } from "./security/rate-limit.js";
 
 const port = Number(process.env.PORT ?? 10000);
@@ -21,6 +22,13 @@ const server = createServer(async (req, res) => {
     if (await handlePerplRoute(req, res)) return;
     if (req.method === "GET" && req.url === "/health") return json(res, 200, { ok: true });
     if (req.method === "GET" && req.url === "/api/perpl/context") { try { return json(res, 200, await getPerplContext()); } catch { return json(res, 502, { error: "Perpl unavailable" }); } }
+    if (req.method === "GET" && req.url === "/api/agent/perpl/account") {
+      if (limited(req, res, "agent-perpl-account", 60, 60_000)) return;
+      const token = bearer(req); if (!token) return json(res, 401, { error: "Agent credential required" });
+      const credential = await authenticateAgent(token);
+      try { return json(res, 200, await getPerplAccountState({ identityId: credential.identityId, delegatedAccount: credential.delegatedAccount as Address, publicClient })); }
+      catch { return json(res, 409, { error: "Perpl account is not connected" }); }
+    }
     if (req.method === "POST" && req.url === "/api/identity/challenge") {
       if (limited(req, res, "identity-challenge", 5, 60_000)) return; const data = await body(req); const owner = String(data.owner ?? "") as Address;
       if (!/^0x[a-fA-F0-9]{40}$/.test(owner)) return json(res, 400, { error: "Invalid owner address" });
