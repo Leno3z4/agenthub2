@@ -1,0 +1,28 @@
+import type { IncomingMessage, ServerResponse } from "node:http";
+import { authenticateAgent } from "../agent/auth.js";
+import { clientIp, rateLimit } from "../security/rate-limit.js";
+import { getPerplState } from "./state-cache.js";
+
+function json(res: ServerResponse, status: number, body: unknown, retryAfterMs = 0) {
+  if (retryAfterMs > 0) res.setHeader("retry-after", String(Math.ceil(retryAfterMs / 1000)));
+  res.writeHead(status, { "content-type": "application/json", "cache-control": "no-store" });
+  res.end(JSON.stringify(body));
+}
+function bearer(req: IncomingMessage) {
+  const value = req.headers.authorization;
+  return typeof value === "string" && value.startsWith("Bearer ") ? value.slice(7).trim() : "";
+}
+
+export async function handlePerplStateRoute(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
+  if (req.method !== "GET" || req.url !== "/api/agent/perpl/state") return false;
+  const limit = rateLimit(`agent-perpl-state:${clientIp(req.headers)}`, 30, 60_000);
+  if (!limit.allowed) { json(res, 429, { error: "Too many requests" }, limit.retryAfterMs); return true; }
+  const token = bearer(req);
+  if (!token) { json(res, 401, { error: "Agent credential required" }); return true; }
+  try {
+    const credential = await authenticateAgent(token);
+    const state = await getPerplState(credential.identityId);
+    json(res, 200, { connector: "perpl", connection_id: credential.connectionId ?? null, ...state });
+  } catch { json(res, 409, { error: "Perpl state is unavailable" }); }
+  return true;
+}
