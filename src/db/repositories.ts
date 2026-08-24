@@ -49,10 +49,10 @@ export async function insertCredential(params: { credential: AgentCredential; co
 }
 
 export async function findCredentialByHash(tokenHash: string): Promise<AgentCredential | undefined> {
-  const result = await getDb().query("SELECT c.*, i.owner_address, i.delegated_account FROM agent_credentials c JOIN identities i ON i.id = c.identity_id JOIN agents a ON a.id = c.agent_id JOIN connections x ON x.id = c.connection_id WHERE c.token_hash = $1 AND c.revoked_at IS NULL AND c.expires_at > NOW() AND x.status = 'active' AND i.status = 'active' AND a.status = 'active' AND a.identity_id = c.identity_id LIMIT 1", [tokenHash]);
+  const result = await getDb().query("SELECT c.*, i.owner_address, i.delegated_account, x.connector, x.status AS connection_status FROM agent_credentials c JOIN identities i ON i.id = c.identity_id JOIN agents a ON a.id = c.agent_id JOIN connections x ON x.id = c.connection_id WHERE c.token_hash = $1 AND c.revoked_at IS NULL AND c.expires_at > NOW() AND x.status = 'active' AND i.status = 'active' AND a.status = 'active' AND a.identity_id = c.identity_id LIMIT 1", [tokenHash]);
   if (!result.rowCount) return undefined;
   const row = result.rows[0];
   await getDb().query("UPDATE agent_credentials SET last_used_at = NOW() WHERE id = $1", [row.id]);
-  return { id: row.id, agentId: row.agent_id, identityId: row.identity_id, owner: row.owner_address, delegatedAccount: row.delegated_account, scopes: Object.freeze([]), expiresAt: new Date(row.expires_at).getTime(), revoked: false, tokenHash: row.token_hash };
+  return { id: row.id, agentId: row.agent_id, identityId: row.identity_id, connectionId: row.connection_id, owner: row.owner_address, delegatedAccount: row.delegated_account, scopes: Object.freeze([]), expiresAt: new Date(row.expires_at).getTime(), revoked: false, tokenHash: row.token_hash, connector: row.connector };
 }
 export async function revokeDbCredential(id: string, identityId?: string) { const result = identityId ? await getDb().query("UPDATE agent_credentials SET revoked_at = NOW() WHERE id = $1 AND identity_id = $2 AND revoked_at IS NULL", [id, identityId]) : await getDb().query("UPDATE agent_credentials SET revoked_at = NOW() WHERE id = $1 AND revoked_at IS NULL", [id]); return (result.rowCount ?? 0) > 0; }
