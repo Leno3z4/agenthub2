@@ -17,4 +17,5 @@ export async function issueAgentCredential(input: { agentId: string; identityId?
   await insertCredential({ credential, connectionId, connector: "perpl", capabilities: credential.scopes }); return { id: credential.id, token, expiresAt, scopes: credential.scopes, identityId: identity.id, agentId: agent.id };
 }
 export async function authenticateAgent(token: string) { const credential = await findCredentialByHash(hash(token)); if (!credential) throw new Error("Invalid agent credential"); return credential; }
+export function requireAgentScope(credential: AgentCredential, scope: string): void { if (!credential.scopes.includes(scope)) throw new Error(`Missing capability: ${scope}`); }
 export async function revokeAgentCredential(id: string, identityId?: string) { return revokeDbCredential(id, identityId); }
