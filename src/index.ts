@@ -6,6 +6,7 @@ import { verifyPerplDeployment } from "./perpl/client.js";
 import { handlePerplRoute } from "./perpl/routes.js";
 import { handlePerplAccountRoute } from "./perpl/account-route.js";
 import { handlePerplOrderRoute } from "./perpl/order-route.js";
+import { handlePerplCancelRoute } from "./perpl/cancel-route.js";
 import { handlePerplStateRoute } from "./perpl/state-route.js";
 import { checkDelegatedAccount } from "./frontend/delegated-account.js";
 import { monad } from "./config.js";
@@ -26,6 +27,7 @@ const server = createServer(async (req, res) => {
     if (await handlePerplAccountRoute(req, res, publicClient)) return;
     if (await handlePerplStateRoute(req, res)) return;
     if (req.method === "POST" && req.url === "/api/agent/perpl/order") { const data = await body(req); if (await handlePerplOrderRoute(req, res, publicClient, data)) return; }
+    if (req.method === "POST" && req.url === "/api/agent/perpl/order/cancel") { const data = await body(req); if (await handlePerplCancelRoute(req, res, publicClient, data)) return; }
     if (req.method === "GET" && req.url === "/api/perpl/context") { try { return json(res, 200, await getPerplContext()); } catch { return json(res, 502, { error: "Perpl unavailable" }); } }
     if (req.method === "POST" && req.url === "/api/identity/challenge") {
       if (limited(req, res, "identity-challenge", 5, 60_000)) return; const data = await body(req); const owner = String(data.owner ?? "") as Address;
