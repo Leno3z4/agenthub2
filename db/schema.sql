@@ -67,7 +67,7 @@ CREATE INDEX IF NOT EXISTS credentials_agent_idx ON agent_credentials(agent_id, 
 CREATE TABLE IF NOT EXISTS connector_secrets (
   id TEXT PRIMARY KEY,
   identity_id TEXT NOT NULL REFERENCES identities(id) ON DELETE CASCADE,
-  connection_id TEXT NOT NULL REFERENCES connections(id) ON DELETE CASCADE,
+  connection_id TEXT REFERENCES connections(id) ON DELETE CASCADE,
   connector TEXT NOT NULL,
   secret_type TEXT NOT NULL,
   ciphertext BYTEA NOT NULL,
@@ -76,9 +76,10 @@ CREATE TABLE IF NOT EXISTS connector_secrets (
   expires_at TIMESTAMPTZ,
   revoked_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE (connection_id, secret_type)
+  UNIQUE (identity_id, connector, secret_type)
 );
 CREATE INDEX IF NOT EXISTS connector_secrets_connection_idx ON connector_secrets(connection_id, connector);
+CREATE INDEX IF NOT EXISTS connector_secrets_identity_idx ON connector_secrets(identity_id, connector, revoked_at);
 
 CREATE TABLE IF NOT EXISTS perpl_enrollments (
   id TEXT PRIMARY KEY,
