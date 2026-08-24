@@ -94,9 +94,19 @@ CREATE TABLE IF NOT EXISTS perpl_enrollments (
   expires_at TIMESTAMPTZ NOT NULL,
   processing_at TIMESTAMPTZ,
   consumed_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_at TIMESTAMPTZ NOT NULL
 );
 CREATE INDEX IF NOT EXISTS perpl_enrollments_identity_idx ON perpl_enrollments(identity_id, expires_at);
+
+CREATE TABLE IF NOT EXISTS identity_challenges (
+  nonce TEXT PRIMARY KEY,
+  owner_address TEXT NOT NULL,
+  message TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS identity_challenges_owner_idx ON identity_challenges(owner_address, expires_at);
 
 CREATE TABLE IF NOT EXISTS audit_events (
   id BIGSERIAL PRIMARY KEY,
