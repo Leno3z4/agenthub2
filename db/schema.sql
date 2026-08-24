@@ -10,7 +10,6 @@ CREATE TABLE IF NOT EXISTS identities (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
 CREATE TABLE IF NOT EXISTS access_keys (
   id TEXT PRIMARY KEY,
   identity_id TEXT NOT NULL REFERENCES identities(id) ON DELETE CASCADE,
@@ -64,6 +63,38 @@ CREATE TABLE IF NOT EXISTS agent_credentials (
 );
 CREATE INDEX IF NOT EXISTS credentials_identity_idx ON agent_credentials(identity_id, revoked_at, expires_at);
 CREATE INDEX IF NOT EXISTS credentials_agent_idx ON agent_credentials(agent_id, revoked_at, expires_at);
+
+CREATE TABLE IF NOT EXISTS connector_secrets (
+  id TEXT PRIMARY KEY,
+  identity_id TEXT NOT NULL REFERENCES identities(id) ON DELETE CASCADE,
+  connection_id TEXT NOT NULL REFERENCES connections(id) ON DELETE CASCADE,
+  connector TEXT NOT NULL,
+  secret_type TEXT NOT NULL,
+  ciphertext BYTEA NOT NULL,
+  iv BYTEA NOT NULL,
+  auth_tag BYTEA NOT NULL,
+  expires_at TIMESTAMPTZ,
+  revoked_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (connection_id, secret_type)
+);
+CREATE INDEX IF NOT EXISTS connector_secrets_connection_idx ON connector_secrets(connection_id, connector);
+
+CREATE TABLE IF NOT EXISTS perpl_enrollments (
+  id TEXT PRIMARY KEY,
+  identity_id TEXT NOT NULL REFERENCES identities(id) ON DELETE CASCADE,
+  delegated_account TEXT NOT NULL,
+  public_key TEXT NOT NULL,
+  encrypted_private_key BYTEA NOT NULL,
+  private_key_iv BYTEA NOT NULL,
+  private_key_auth_tag BYTEA NOT NULL,
+  typed_data JSONB,
+  mac TEXT,
+  expires_at TIMESTAMPTZ NOT NULL,
+  consumed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS perpl_enrollments_identity_idx ON perpl_enrollments(identity_id, expires_at);
 
 CREATE TABLE IF NOT EXISTS audit_events (
   id BIGSERIAL PRIMARY KEY,
