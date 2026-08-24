@@ -92,6 +92,7 @@ CREATE TABLE IF NOT EXISTS perpl_enrollments (
   typed_data JSONB,
   mac TEXT,
   expires_at TIMESTAMPTZ NOT NULL,
+  processing_at TIMESTAMPTZ,
   consumed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
