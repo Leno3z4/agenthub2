@@ -4,6 +4,18 @@ const { Pool } = pg;
 
 let pool: pg.Pool | undefined;
 
+function databaseSsl() {
+  if (process.env.NODE_ENV !== "production") return undefined;
+  if (process.env.DATABASE_SSL === "disable") return undefined;
+  if (process.env.DATABASE_SSL === "verify-full") {
+    return {
+      rejectUnauthorized: true,
+      ca: process.env.DATABASE_SSL_CA,
+    };
+  }
+  return { rejectUnauthorized: true };
+}
+
 export function getDb(): pg.Pool {
   if (pool) return pool;
   const connectionString = process.env.DATABASE_URL;
@@ -15,7 +27,7 @@ export function getDb(): pg.Pool {
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 5_000,
     maxLifetimeSeconds: 300,
-    ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : undefined,
+    ssl: databaseSsl(),
   });
 
   return pool;
