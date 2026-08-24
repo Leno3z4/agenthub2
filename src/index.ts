@@ -5,8 +5,9 @@ import { getPerplContext } from "./perpl/api.js";
 import { verifyPerplDeployment } from "./perpl/client.js";
 import { checkDelegatedAccount } from "./frontend/delegated-account.js";
 import { monad } from "./config.js";
-import { consumeIdentityChallenge, getIdentityByOwner, getOrCreateIdentity, issueIdentityChallenge, createAgent } from "./agent/identity.js";
-import { authenticateIdentityAccessKey, issueAgentCredential, revokeIdentityAccessKey } from "./agent/auth.js";
+import { consumeIdentityChallenge, getOrCreateIdentity, issueIdentityChallenge } from "./agent/identity.js";
+import { authenticateIdentityAccessKey, issueAgentCredential, issueIdentityAccessKey, revokeIdentityAccessKey } from "./agent/auth.js";
+import { createAgent } from "./agent/identity.js";
 
 const port = Number(process.env.PORT ?? 10000);
 const publicClient = createPublicClient({ chain: monad, transport: http() });
@@ -19,10 +20,10 @@ function json(res: any, status: number, body: unknown) {
 async function body(req: any): Promise<Record<string, unknown>> {
   const chunks: Buffer[] = [];
   for await (const chunk of req) chunks.push(Buffer.from(chunk));
-  if (Buffer.concat(chunks).length > 16_384) throw new Error("Request body too large");
-  const raw = Buffer.concat(chunks).toString("utf8");
-  if (!raw) return {};
-  const parsed = JSON.parse(raw);
+  const rawBuffer = Buffer.concat(chunks);
+  if (rawBuffer.length > 16_384) throw new Error("Request body too large");
+  if (!rawBuffer.length) return {};
+  const parsed = JSON.parse(rawBuffer.toString("utf8"));
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("Invalid JSON body");
   return parsed as Record<string, unknown>;
 }
@@ -54,12 +55,12 @@ const server = createServer(async (req, res) => {
       const owner = String(data.owner ?? "") as Address;
       const message = String(data.message ?? "");
       const signature = String(data.signature ?? "") as Hex;
+      if (!/^0x[a-fA-F0-9]{40}$/.test(owner) || !/^0x[a-fA-F0-9]+$/.test(signature)) return json(res, 400, { error: "Invalid identity authorization request" });
       const delegated = await checkDelegatedAccount(owner, publicClient);
       if (!delegated.exists) return json(res, 409, { error: "Delegated account does not exist" });
-      const valid = await consumeIdentityChallenge({ owner, message, signature });
-      if (!valid) return json(res, 401, { error: "Invalid or expired identity authorization" });
+      if (!await consumeIdentityChallenge({ owner, message, signature })) return json(res, 401, { error: "Invalid or expired identity authorization" });
       const identity = getOrCreateIdentity(owner, delegated.address);
-      const accessKey = issueAgentAccessKey(identity);
+      const accessKey = issueIdentityAccessKey(identity);
       return json(res, 201, { identity_id: identity.id, owner: identity.owner, delegated_account: identity.delegatedAccount, access_key: accessKey.token, access_key_id: accessKey.id, expires_at: accessKey.expiresAt });
     }
 
@@ -94,11 +95,6 @@ const server = createServer(async (req, res) => {
     return json(res, 400, { error: error instanceof Error ? error.message : "Bad request" });
   }
 });
-
-function issueAgentAccessKey(identity: Parameters<typeof getOrCreateIdentity>[0] extends never ? never : ReturnType<typeof getOrCreateIdentity>) {
-  const { issueIdentityAccessKey } = require("./agent/auth.js") as typeof import("./agent/auth.js");
-  return issueIdentityAccessKey(identity);
-}
 
 server.listen(port, "0.0.0.0", () => console.log(`agenthub2 listening on ${port}`));
 verifyPerplDeployment().then((deployment) => console.log(JSON.stringify({ deployment }))).catch((error) => console.error("Perpl deployment check failed:", error));
