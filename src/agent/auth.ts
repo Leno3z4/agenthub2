@@ -38,11 +38,9 @@ export async function issueAgentCredential(input: { agentId: string; identityId?
   const token = secret("ah2_agent");
   const expiresAt = Date.now() + Math.min(input.ttlMs ?? 86_400_000, 86_400_000);
   const credential: AgentCredential = {
-    id: `cred_${randomBytes(16).toString("hex")},`,
-    agentId: agent.id,
-    identityId: identity.id,
-    owner: identity.owner.toLowerCase(),
-    delegatedAccount: identity.delegatedAccount.toLowerCase(),
+    id: `cred_${randomBytes(16).toString("hex")}`,
+    agentId: agent.id, identityId: identity.id,
+    owner: identity.owner.toLowerCase(), delegatedAccount: identity.delegatedAccount.toLowerCase(),
     scopes: Object.freeze(input.scopes ?? ["trade:read", "trade:write", "position:close"]),
     expiresAt, revoked: false, tokenHash: hash(token),
   };
