@@ -25,6 +25,7 @@ export function AgentIdentity() {
       return;
     }
 
+    const currentAddress = address;
     let cancelled = false;
 
     async function load() {
@@ -33,7 +34,7 @@ export function AgentIdentity() {
 
       try {
         const result =
-          await getDelegatedAccount(address);
+          await getDelegatedAccount(currentAddress);
 
         if (!cancelled) {
           setAccount(result);
