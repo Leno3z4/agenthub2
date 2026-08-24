@@ -2,13 +2,13 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Address, Hex } from "viem";
 import { authenticateIdentityAccessKey } from "../agent/auth.js";
 import { beginPerplEnrollment } from "./secure-enrollment.js";
-import { consumePendingEnrollment, getPendingEnrollment, savePendingEnrollment, savePerplSecret } from "./enrollment-store.js";
+import { claimPendingEnrollment, finishClaimedEnrollment, releaseClaimedEnrollment, savePendingEnrollment, savePerplSecret } from "./enrollment-store.js";
 import { enrollApiKey } from "./enrollment.js";
 import { rateLimit, clientIp } from "../security/rate-limit.js";
 
 function json(res: ServerResponse, status: number, body: unknown) { res.writeHead(status, { "content-type": "application/json", "cache-control": "no-store" }); res.end(JSON.stringify(body)); }
 function bearer(req: IncomingMessage) { const value = req.headers.authorization; return typeof value === "string" && value.startsWith("Bearer ") ? value.slice(7).trim() : ""; }
-async function body(req: IncomingMessage) { const chunks: Buffer[] = []; for await (const chunk of req) chunks.push(Buffer.from(chunk)); if (Buffer.concat(chunks).length > 16_384) throw new Error("Request body too large"); return JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>; }
+async function body(req: IncomingMessage) { const chunks: Buffer[] = []; let size = 0; for await (const chunk of req) { const part = Buffer.from(chunk); size += part.length; if (size > 16_384) throw new Error("Request body too large"); chunks.push(part); } return JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>; }
 
 export async function handlePerplRoute(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
   if (!req.url || !req.method || !req.url.startsWith("/api/perpl/enroll/")) return false;
@@ -32,13 +32,18 @@ export async function handlePerplRoute(req: IncomingMessage, res: ServerResponse
     const enrollmentId = String(data.enrollment_id ?? "");
     const walletSignature = String(data.wallet_signature ?? "") as Hex;
     if (!enrollmentId || !/^0x[0-9a-fA-F]+$/.test(walletSignature)) { json(res, 400, { error: "Enrollment ID and wallet signature are required" }); return true; }
-    const pending = await getPendingEnrollment(enrollmentId, identity.id);
-    if (!pending) { json(res, 404, { error: "Enrollment not found or expired" }); return true; }
-    const payload = { typed_data: pending.typedData, mac: pending.mac } as any;
-    const result = await enrollApiKey({ address: pending.delegatedAccount, payload, walletSignature, privateKey: pending.privateKey, origin });
-    if (!await consumePendingEnrollment(enrollmentId, identity.id)) { json(res, 409, { error: "Enrollment already consumed" }); return true; }
-    await savePerplSecret({ identityId: identity.id, apiKey: result.api_key, privateKey: pending.privateKey });
-    return json(res, 200, { connected: true, connector: "perpl", delegated_account: identity.delegatedAccount });
+    const pending = await claimPendingEnrollment(enrollmentId, identity.id);
+    if (!pending) { json(res, 404, { error: "Enrollment not found, expired, or already processing" }); return true; }
+    try {
+      const payload = { typed_data: pending.typedData, mac: pending.mac } as any;
+      const result = await enrollApiKey({ address: pending.delegatedAccount, payload, walletSignature, privateKey: pending.privateKey, origin });
+      await savePerplSecret({ identityId: identity.id, apiKey: result.api_key, privateKey: pending.privateKey });
+      if (!await finishClaimedEnrollment(enrollmentId, identity.id)) throw new Error("Unable to finalize Perpl enrollment");
+      return json(res, 200, { connected: true, connector: "perpl", delegated_account: identity.delegatedAccount });
+    } catch (error) {
+      await releaseClaimedEnrollment(enrollmentId, identity.id);
+      throw error;
+    }
   }
   json(res, 404, { error: "Not found" }); return true;
 }
