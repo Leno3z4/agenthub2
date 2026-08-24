@@ -7,11 +7,13 @@ const WS_URL = process.env.PERPL_WS_URL ?? "wss://app.perpl.xyz";
 const CHAIN_ID = Number(process.env.PERPL_CHAIN_ID ?? 143);
 
 export interface PerplTradingCredentials { apiKey: string; privateKey: Uint8Array }
-export interface PlaceOrderInput extends Omit<PerplOrderRequest, "mt" | "rq" | "lb"> { rq?: number; lb?: number }
+export interface PlaceOrderInput extends Omit<PerplOrderRequest, "mt" | "rq" | "lb" | "sn"> { rq?: number; lb?: number; sn?: number }
+export interface PerplOrderResult { rq: number; sn: number; admission?: PerplWsMessage; outcome?: PerplWsMessage }
 
 export class PerplTradingWs {
   private ws?: WebSocket;
   private requestId = 0;
+  private sequenceId = 0;
   private listeners = new Set<(message: PerplWsMessage) => void>();
   constructor(private readonly credentials: PerplTradingCredentials) {}
   isOpen(): boolean { return this.ws?.readyState === WebSocket.OPEN; }
@@ -34,34 +36,45 @@ export class PerplTradingWs {
   }
 
   onMessage(listener: (message: PerplWsMessage) => void): () => void { this.listeners.add(listener); return () => this.listeners.delete(listener); }
+  nextRequestId(): number { return ++this.requestId; }
+  nextSequenceId(): number { return ++this.sequenceId; }
 
   async placeOrder(input: PlaceOrderInput): Promise<number> {
     await this.connect();
-    const rq = input.rq ?? ++this.requestId;
+    const rq = input.rq ?? this.nextRequestId();
     this.requestId = Math.max(this.requestId, rq);
-    this.ws!.send(JSON.stringify({ ...input, mt: 22, rq, lb: input.lb ?? 0 }));
+    const sn = input.sn ?? this.nextSequenceId();
+    this.ws!.send(JSON.stringify({ ...input, mt: 22, rq, sn, lb: input.lb ?? 0 }));
     return rq;
   }
 
-  async placeOrderAndWait(input: PlaceOrderInput, timeoutMs = 8_000): Promise<{ rq: number; response?: PerplWsMessage }> {
+  async submitOrder(input: PlaceOrderInput, timeoutMs = 10_000): Promise<PerplOrderResult> {
     await this.connect();
-    const rq = input.rq ?? ++this.requestId;
+    const rq = input.rq ?? this.nextRequestId();
     this.requestId = Math.max(this.requestId, rq);
+    const sn = input.sn ?? this.nextSequenceId();
     return new Promise((resolve, reject) => {
+      let admission: PerplWsMessage | undefined;
       const timeout = setTimeout(() => { unsubscribe(); reject(new Error("Perpl order response timeout")); }, timeoutMs);
       const unsubscribe = this.onMessage((message) => {
-        if (message.rq !== rq) return;
+        if (message.mt === 3 && message.cid === sn) {
+          admission = message;
+          const status = typeof message.status === "object" && message.status ? message.status as Record<string, unknown> : undefined;
+          if (status?.code !== 0) { clearTimeout(timeout); unsubscribe(); reject(new Error(typeof status?.error === "string" ? status.error : "Perpl order rejected")); return; }
+          return;
+        }
+        if (message.mt !== 24 || message.rq !== rq) return;
         clearTimeout(timeout);
         unsubscribe();
-        resolve({ rq, response: message });
+        resolve({ rq, sn, admission, outcome: message });
       });
-      this.ws!.send(JSON.stringify({ ...input, mt: 22, rq, lb: input.lb ?? 0 }));
+      this.ws!.send(JSON.stringify({ ...input, mt: 22, rq, sn, lb: input.lb ?? 0 }));
     });
   }
 
-  async subscribe(streams: string[]): Promise<void> {
-    await this.connect();
-    this.ws!.send(JSON.stringify({ mt: 5, subs: streams.map((stream) => ({ stream, subscribe: true })) }));
+  async cancelOrder(params: { mkt: number; acc: number; oid: number; lb: number }, timeoutMs = 10_000): Promise<PerplOrderResult> {
+    if (!Number.isInteger(params.oid) || params.oid < 0) throw new Error("Invalid order ID");
+    return this.submitOrder({ mkt: params.mkt, acc: params.acc, oid: params.oid, t: 5, s: 0, fl: 0, lv: 0, lb: params.lb });
   }
 
   close(): void { this.ws?.close(); this.ws = undefined; }
