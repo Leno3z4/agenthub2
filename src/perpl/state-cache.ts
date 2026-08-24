@@ -1,48 +1,71 @@
 import type { PerplWsMessage } from "./types.js";
 import { getPerplSession } from "./session.js";
 
-const MAX_MESSAGES_PER_STREAM = 100;
-const cache = new Map<string, { messages: PerplWsMessage[]; lastMessageAt?: number }>();
+const MAX_MESSAGES = 100;
+
+type StateBucket = { latest?: PerplWsMessage; lastMessageAt?: number; messages: PerplWsMessage[] };
+
+const buckets = new Map<string, StateBucket>();
 const subscriptions = new Map<string, () => void>();
 
-function configuredStreams() {
-  return (process.env.PERPL_ACCOUNT_STREAMS ?? "").split(",").map((value) => value.trim()).filter(Boolean);
+const KIND_BY_MT: Record<number, string> = {
+  19: "wallet",
+  20: "wallet",
+  23: "orders",
+  24: "orders",
+  26: "positions",
+  27: "positions",
+};
+
+function bucket(identityId: string, kind: string) {
+  const key = `${identityId}:${kind}`;
+  const state = buckets.get(key) ?? { messages: [] };
+  buckets.set(key, state);
+  return state;
 }
 
-export async function ensurePerplStateSubscription(identityId: string) {
-  const streams = configuredStreams();
-  if (!streams.length) return { subscribed: false, streams: [] as string[], lastMessageAt: undefined };
+export async function ensurePerplAccountState(identityId: string) {
   if (!subscriptions.has(identityId)) {
     const session = await getPerplSession(identityId);
     const unsubscribe = session.onMessage((message) => {
-      const stream = typeof message.stream === "string" ? message.stream : undefined;
-      if (!stream || !streams.includes(stream)) return;
-      const key = `${identityId}:${stream}`;
-      const state = cache.get(key) ?? { messages: [] as PerplWsMessage[] };
-      state.messages.push(message);
+      const kind = KIND_BY_MT[message.mt];
+      if (!kind) return;
+      const state = bucket(identityId, kind);
+      state.latest = message;
       state.lastMessageAt = Date.now();
-      if (state.messages.length > MAX_MESSAGES_PER_STREAM) state.messages.splice(0, state.messages.length - MAX_MESSAGES_PER_STREAM);
-      cache.set(key, state);
+      state.messages.push(message);
+      if (state.messages.length > MAX_MESSAGES) state.messages.splice(0, state.messages.length - MAX_MESSAGES);
     });
-    await session.subscribe(streams);
     subscriptions.set(identityId, unsubscribe);
   }
-  return { subscribed: true, streams, lastMessageAt: streams.reduce<number | undefined>((latest, stream) => Math.max(latest ?? 0, cache.get(`${identityId}:${stream}`)?.lastMessageAt ?? 0) || latest, undefined) };
+  return { subscribed: true };
+}
+
+function read(identityId: string, kind: string) {
+  const state = buckets.get(`${identityId}:${kind}`);
+  return { data: state?.latest ?? null, lastMessageAt: state?.lastMessageAt ?? null };
 }
 
 export async function getPerplState(identityId: string) {
-  const { subscribed, streams, lastMessageAt } = await ensurePerplStateSubscription(identityId);
+  await ensurePerplAccountState(identityId);
+  const wallet = read(identityId, "wallet");
+  const orders = read(identityId, "orders");
+  const positions = read(identityId, "positions");
+  const timestamps = [wallet.lastMessageAt, orders.lastMessageAt, positions.lastMessageAt].filter((value): value is number => value !== null);
+  const lastMessageAt = timestamps.length ? Math.max(...timestamps) : null;
+  const staleMs = Number(process.env.PERPL_STATE_STALE_MS ?? 30_000);
   return {
-    subscribed,
-    streams,
-    lastMessageAt: lastMessageAt ?? null,
-    stale: lastMessageAt ? Date.now() - lastMessageAt > Number(process.env.PERPL_STATE_STALE_MS ?? 30_000) : true,
-    latest: Object.fromEntries(streams.map((stream) => [stream, cache.get(`${identityId}:${stream}`)?.messages.at(-1) ?? null])),
+    subscribed: true,
+    lastMessageAt,
+    stale: lastMessageAt === null || Date.now() - lastMessageAt > staleMs,
+    wallet,
+    orders,
+    positions,
   };
 }
 
 export function clearPerplState(identityId: string) {
-  for (const stream of configuredStreams()) cache.delete(`${identityId}:${stream}`);
+  for (const kind of ["wallet", "orders", "positions"]) buckets.delete(`${identityId}:${kind}`);
   const unsubscribe = subscriptions.get(identityId);
   if (unsubscribe) unsubscribe();
   subscriptions.delete(identityId);
