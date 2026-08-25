@@ -74,9 +74,7 @@ export default function OnboardingPage() {
   }
 
   async function authorizeIdentity() {
-    if (!address) {
-      return;
-    }
+    if (!address) return;
 
     setError("");
 
@@ -306,7 +304,7 @@ export default function OnboardingPage() {
                 >
                   {copied ? "Copied" : "Copy connection prompt"}
                 </button>
-                <AgentConnectionChecker enabled={true} />
+                <AgentConnectionChecker />
                 <p className="muted">
                   Keep the identity credential private. Your agent should use
                   the returned connection token for subsequent requests.
