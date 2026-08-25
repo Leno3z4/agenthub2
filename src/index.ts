@@ -74,7 +74,9 @@ const server = createServer(async (req, res) => {
     if (req.method === "GET" && req.url === "/health") {
       return json(res, 200, { ok: true });
     }
-    if (await handleAgentRoute(req, res, await body(req))) return;
+    if (req.url?.startsWith("/api/agents")) {
+      if (await handleAgentRoute(req, res, await body(req))) return;
+    }
     if (await handlePerplAccountRoute(req, res, publicClient)) return;
     if (await handlePerplStateRoute(req, res)) return;
 
