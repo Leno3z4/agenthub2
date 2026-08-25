@@ -122,6 +122,96 @@ body {
   background: transparent;
 }
 
+.agent-selector {
+  position: relative;
+}
+
+.agent-selector-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: rgba(18, 9, 29, 0.35);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.agent-selector-trigger:hover,
+.agent-selector-trigger[aria-expanded="true"] {
+  border-color: var(--cream);
+  background: rgba(45, 22, 70, 0.28);
+}
+
+.agent-selector-trigger span {
+  color: var(--cream);
+}
+
+.agent-selector-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  z-index: 40;
+  width: min(420px, calc(100vw - 32px));
+  padding: 16px;
+  border: 1px solid var(--border);
+  background: rgba(18, 9, 29, 0.96);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+}
+
+.agent-selector-heading,
+.agent-selector-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.agent-selector-heading {
+  margin-bottom: 12px;
+}
+
+.agent-selector-heading button,
+.agent-selector-row button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.agent-selector-heading button:hover,
+.agent-selector-row button:hover {
+  color: var(--cream);
+}
+
+.agent-selector-row {
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+}
+
+.agent-selector-row p,
+.agent-selector-connect p {
+  margin: 4px 0 0;
+}
+
+.agent-selector-connect {
+  margin-top: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.agent-selector-prompt {
+  margin-top: 14px;
+}
+
+.agent-selector-prompt pre {
+  margin: 0 0 10px;
+  max-height: 180px;
+  overflow: auto;
+}
+
 .dashboard-grid {
   gap: 0;
 }
@@ -158,7 +248,8 @@ body {
 }
 
 .onboarding-card pre,
-.agent-prompt pre {
+.agent-prompt pre,
+.agent-selector-prompt pre {
   background: rgba(10, 5, 17, 0.5);
   border: 1px solid var(--border);
   border-radius: 0;
@@ -199,6 +290,15 @@ body {
   .status-data {
     flex-wrap: wrap;
     gap: 24px;
+  }
+
+  .dashboard-nav-left {
+    min-width: 0;
+  }
+
+  .agent-selector-menu {
+    left: -8px;
+    width: min(390px, calc(100vw - 24px));
   }
 
   .kill-switch {
