@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useAccount, useConnect, useDisconnect } from "wagmi";
 
 export function WalletConnect({ onConnected }: { onConnected: (address: string) => void }) {
@@ -7,8 +8,11 @@ export function WalletConnect({ onConnected }: { onConnected: (address: string) 
   const { connectors, connect, isPending, error } = useConnect();
   const { disconnect } = useDisconnect();
 
+  useEffect(() => {
+    if (isConnected && address) onConnected(address);
+  }, [address, isConnected, onConnected]);
+
   if (isConnected && address) {
-    onConnected(address);
     return <div className="wallet-status"><span>{address.slice(0, 6)}...{address.slice(-4)}</span><button className="button-secondary" onClick={() => disconnect()}>Disconnect</button></div>;
   }
 
