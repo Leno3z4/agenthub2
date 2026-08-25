@@ -28,7 +28,7 @@ export default function Home() {
 
         <nav className={styles.navLinks}>
           <a href="#docs">Docs</a>
-          <DashboardLink href="/onboarding">Launch</DashboardLink>
+          <DashboardLink>Launch</DashboardLink>
         </nav>
 
         <LandingConnect className={styles.connect} />
@@ -50,7 +50,7 @@ export default function Home() {
           </p>
 
           <div className={styles.heroActions}>
-            <DashboardLink href="/onboarding" className={styles.primary}>
+            <DashboardLink className={styles.primary}>
               Launch
             </DashboardLink>
             <LandingConnect className={styles.secondary} />
@@ -91,7 +91,7 @@ export default function Home() {
           <p>
             Start with your wallet, create your trading account, then connect an agent using the guided connection flow. Existing accounts return directly to the dashboard.
           </p>
-          <DashboardLink href="/onboarding" className={styles.agentLink}>
+          <DashboardLink className={styles.agentLink}>
             Get started
           </DashboardLink>
         </div>
