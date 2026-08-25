@@ -1,10 +1,11 @@
-import { AccountSectionPage } from "../../../components/AccountSectionPage";
+import { AccountDataPage } from "../../../components/AccountDataPage";
 
 export default function HistoryPage() {
   return (
-    <AccountSectionPage
+    <AccountDataPage
+      mode="history"
       title="History"
-      description="Review account activity and executed trades for this delegated account."
+      description="Review activity currently available from the live Perpl state feed."
     />
   );
 }
