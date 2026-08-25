@@ -10,6 +10,10 @@ export default function DashboardPage() {
     <DashboardGate>
       <main className="dashboard">
         <header className="dashboard-nav">
+          <div className="dashboard-nav-left">
+            <AgentSelector />
+          </div>
+
           <div className="dashboard-nav-right">
             <span className="wallet-address">Connected wallet</span>
           </div>
@@ -26,7 +30,6 @@ export default function DashboardPage() {
           </div>
 
           <AgentIdentity />
-          <AgentSelector />
 
           <section className="dashboard-grid">
             <DepositPanel />
