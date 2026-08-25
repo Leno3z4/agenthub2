@@ -11,6 +11,7 @@ import { handlePerplStateRoute } from "./perpl/state-route.js";
 import { handlePerplKillSwitchRoute } from "./perpl/kill-switch-route.js";
 import { checkDelegatedAccount } from "./frontend/delegated-account.js";
 import { monad } from "./config.js";
+import { handleAgentRoute } from "./agent/routes.js";
 import {
   consumeIdentityChallenge,
   getOrCreateIdentity,
@@ -73,6 +74,7 @@ const server = createServer(async (req, res) => {
     if (req.method === "GET" && req.url === "/health") {
       return json(res, 200, { ok: true });
     }
+    if (await handleAgentRoute(req, res, await body(req))) return;
     if (await handlePerplAccountRoute(req, res, publicClient)) return;
     if (await handlePerplStateRoute(req, res)) return;
 
