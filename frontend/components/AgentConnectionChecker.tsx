@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 const API_URL =
@@ -8,7 +8,7 @@ const API_URL =
   "https://agenthub2.onrender.com";
 const ACCESS_KEY_STORAGE = "agenthub_identity_access_key";
 
-export function AgentConnectionChecker({ enabled }: { enabled: boolean }) {
+export function AgentConnectionChecker() {
   const router = useRouter();
   const [checking, setChecking] = useState(false);
   const [message, setMessage] = useState("");
@@ -18,7 +18,7 @@ export function AgentConnectionChecker({ enabled }: { enabled: boolean }) {
 
     if (!accessKey) {
       setMessage("Your AgentHub session is unavailable. Start onboarding again.");
-      return false;
+      return;
     }
 
     setChecking(true);
@@ -31,57 +31,36 @@ export function AgentConnectionChecker({ enabled }: { enabled: boolean }) {
         },
         cache: "no-store",
       });
+      const body = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        setMessage("We could not check the agent connection yet.");
-        return false;
+        throw new Error(
+          body.error ?? "Unable to check the agent connection yet.",
+        );
       }
 
-      const body = await response.json();
       const agents = Array.isArray(body.agents) ? body.agents : [];
+      const activeAgent = agents.find(
+        (agent: { status?: string }) => agent.status === "active",
+      );
 
-      if (agents.length > 0) {
-        router.replace("/dashboard");
-        return true;
+      if (!activeAgent) {
+        setMessage(
+          "No connected agent found yet. Try again after your agent finishes connecting.",
+        );
+        return;
       }
 
-      setMessage("No agent connection yet. Keep the connection prompt in your agent and try again.");
-      return false;
-    } catch {
-      setMessage("We could not check the agent connection yet.");
-      return false;
+      router.replace("/dashboard");
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to check the agent connection yet.",
+      );
     } finally {
       setChecking(false);
     }
-  }
-
-  useEffect(() => {
-    if (!enabled) {
-      return;
-    }
-
-    let cancelled = false;
-
-    const poll = async () => {
-      if (cancelled) {
-        return;
-      }
-      await checkConnection();
-    };
-
-    void poll();
-    const timer = window.setInterval(() => {
-      void poll();
-    }, 4000);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, [enabled]);
-
-  if (!enabled) {
-    return null;
   }
 
   return (
