@@ -3,7 +3,7 @@
 .onboarding-page {
   min-height: 100svh;
   min-height: 100dvh;
-  padding: 24px;
+  padding: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -14,23 +14,24 @@
 }
 
 .onboarding-card {
-  width: min(100%, 560px);
+  width: min(100%, 620px);
   margin: 0 auto;
+  padding: 24px 12px;
   text-align: center;
 }
 
 .onboarding-card h1 {
-  margin-top: 0;
-  font-size: clamp(38px, 10vw, 64px);
-  line-height: 0.98;
-  letter-spacing: -0.055em;
+  margin: 0 0 22px;
+  font-size: clamp(40px, 10vw, 68px);
+  line-height: 0.96;
+  letter-spacing: -0.06em;
 }
 
 .onboarding-card > p {
-  max-width: 620px;
-  margin: 22px auto 30px;
-  color: var(--muted);
-  font-size: clamp(16px, 4vw, 20px);
+  max-width: 560px;
+  margin: 0 auto 30px;
+  color: var(--text);
+  font-size: clamp(16px, 4vw, 19px);
   line-height: 1.5;
 }
 
@@ -42,34 +43,49 @@
   margin-right: auto;
 }
 
+.onboarding-card .wallet-connect {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.onboarding-card .wallet-status {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+}
+
 .onboarding-card .button-primary {
   min-height: 56px;
   padding: 15px 20px;
 }
 
-.onboarding-card .wallet-connect {
-  display: flex;
-  justify-content: center;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
+.onboarding-card .risk-panel {
+  max-width: 560px;
+  margin: 24px auto;
+  text-align: left;
 }
 
-.onboarding-card .wallet-connect .error-text {
-  margin: 0;
+.onboarding-card .risk-check {
+  justify-content: center;
 }
 
 @media (max-width: 600px) {
   .onboarding-page {
-    padding: 20px;
+    padding: 16px;
+  }
+
+  .onboarding-card {
+    padding: 16px 4px;
   }
 
   .onboarding-card h1 {
-    font-size: clamp(36px, 11vw, 52px);
+    font-size: clamp(38px, 11vw, 54px);
   }
 
   .onboarding-card > p {
-    font-size: 17px;
+    font-size: 16px;
     line-height: 1.45;
   }
 }
