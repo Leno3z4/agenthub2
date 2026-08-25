@@ -11,7 +11,9 @@ import {
 } from "wagmi";
 import { WalletConnect } from "../../components/WalletConnect";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://agenthub2.onrender.com";
 const SKILL_URL = "/skill.md";
 const ACCESS_KEY_STORAGE = "agenthub_identity_access_key";
 const FACTORY = "0xb54B83513519Ec64e579F8F1CDdeaEF1CF4BB71b" as `0x${string}`;
