@@ -1,30 +1,42 @@
 :root {
-  --purple-950: #050505;
-  --purple-900: #0a0a0a;
-  --purple-800: #101010;
-  --purple-700: #171717;
+  --purple-950: #12091d;
+  --purple-900: #190c27;
+  --purple-800: #211034;
+  --purple-700: #2d1646;
   --cream: #d8cc79;
   --cream-light: #eee6ad;
   --text: #f4f1e8;
-  --muted: #96938b;
-  --border: #262626;
+  --muted: #aaa4b0;
+  --border: rgba(216, 204, 121, 0.16);
   --surface: transparent;
-  --surface-light: #0d0d0d;
+  --surface-light: rgba(45, 22, 70, 0.22);
 }
 
+html,
 body {
-  background: #050505;
+  background: #12091d;
   color: var(--text);
 }
 
+body {
+  background:
+    radial-gradient(circle at 72% 18%, rgba(109, 48, 150, 0.18), transparent 32%),
+    radial-gradient(circle at 18% 78%, rgba(72, 34, 115, 0.16), transparent 35%),
+    linear-gradient(145deg, #0f0718 0%, #160a24 48%, #100719 100%);
+}
+
 .dashboard,
-.onboarding-page {
-  background: #050505;
+.onboarding-page,
+.site {
+  background:
+    radial-gradient(circle at 78% 14%, rgba(105, 44, 146, 0.18), transparent 30%),
+    radial-gradient(circle at 12% 82%, rgba(70, 31, 112, 0.15), transparent 34%),
+    linear-gradient(145deg, #0f0718 0%, #170a25 52%, #100719 100%);
 }
 
 .dashboard-nav {
-  background: rgba(5, 5, 5, 0.92);
-  border-bottom-color: #1e1e1e;
+  background: rgba(15, 7, 24, 0.82);
+  border-bottom-color: var(--border);
 }
 
 .dashboard-brand,
@@ -50,7 +62,7 @@ body {
 .risk-panel,
 .onboarding-card {
   background: transparent;
-  border-color: #252525;
+  border-color: var(--border);
   border-radius: 0;
   box-shadow: none;
 }
@@ -75,14 +87,27 @@ body {
 }
 
 .action-button {
-  background: transparent;
-  border-color: #353535;
+  background: rgba(18, 9, 29, 0.35);
+  border-color: var(--border);
   color: var(--text);
 }
 
 .action-button:hover {
   border-color: var(--cream);
+  background: rgba(45, 22, 70, 0.28);
+}
+
+.button-secondary,
+.wallet-button {
   background: transparent;
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.button-secondary:hover,
+.wallet-button:hover {
+  background: rgba(216, 204, 121, 0.1);
+  border-color: var(--cream);
 }
 
 .risk-panel {
@@ -92,7 +117,7 @@ body {
 .agent-row,
 .agent-connect-block,
 .agent-prompt {
-  border-color: #252525;
+  border-color: var(--border);
   border-radius: 0;
   background: transparent;
 }
@@ -106,7 +131,7 @@ body {
   padding: 24px 0;
   width: 100%;
   border: 0;
-  border-top: 1px solid #5c3835;
+  border-top: 1px solid rgba(170, 82, 75, 0.45);
   border-radius: 0;
   text-align: left;
   background: transparent;
@@ -116,6 +141,8 @@ body {
   min-height: 100svh;
   min-height: 100dvh;
   padding: 24px;
+  display: grid;
+  place-items: center;
 }
 
 .onboarding-card {
@@ -125,15 +152,15 @@ body {
 
 .onboarding-card .risk-panel {
   border: 0;
-  border-top: 1px solid #252525;
-  border-bottom: 1px solid #252525;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
   text-align: left;
 }
 
 .onboarding-card pre,
 .agent-prompt pre {
-  background: #090909;
-  border: 1px solid #1f1f1f;
+  background: rgba(10, 5, 17, 0.5);
+  border: 1px solid var(--border);
   border-radius: 0;
   color: #d9d6cc;
   overflow-x: auto;
