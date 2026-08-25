@@ -9,6 +9,7 @@ import {
   useWriteContract,
 } from "wagmi";
 import { WalletConnect } from "../../components/WalletConnect";
+import { AgentConnectionChecker } from "../../components/AgentConnectionChecker";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ||
@@ -305,6 +306,7 @@ export default function OnboardingPage() {
                 >
                   {copied ? "Copied" : "Copy connection prompt"}
                 </button>
+                <AgentConnectionChecker />
                 <p className="muted">
                   Keep the identity credential private. Your agent should use
                   the returned connection token for subsequent requests.
