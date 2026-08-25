@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { WalletButton } from "./WalletButton";
+import { DashboardLink } from "./DashboardLink";
 
 export function Navbar() {
   return (
@@ -12,7 +13,7 @@ export function Navbar() {
       </Link>
 
       <nav className="nav-links">
-        <Link href="/dashboard">Dashboard</Link>
+        <DashboardLink>Dashboard</DashboardLink>
         <a href="#markets">Markets</a>
         <a href="#agents">Agents</a>
         <a href="#docs">Docs</a>
