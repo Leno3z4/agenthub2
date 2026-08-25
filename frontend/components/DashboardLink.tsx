@@ -6,13 +6,13 @@ import { useAccount } from "wagmi";
 
 const ACCESS_KEY_STORAGE = "agenthub_identity_access_key";
 
-export function DashboardLink({
-  className,
-  children,
-}: {
+type Props = {
   className?: string;
   children: React.ReactNode;
-}) {
+  href?: string;
+};
+
+export function DashboardLink({ className, children, href = "/onboarding" }: Props) {
   const { isConnected } = useAccount();
   const [hasSavedIdentity, setHasSavedIdentity] = useState(false);
 
@@ -22,10 +22,10 @@ export function DashboardLink({
     );
   }, [isConnected]);
 
-  const href = isConnected && hasSavedIdentity ? "/dashboard" : "/onboarding";
+  const destination = isConnected && hasSavedIdentity ? "/dashboard" : href;
 
   return (
-    <Link href={href} className={className}>
+    <Link href={destination} className={className}>
       {children}
     </Link>
   );
