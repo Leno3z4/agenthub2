@@ -41,6 +41,7 @@ export default function OnboardingPage() {
       const response = await fetch(`${API_URL}/api/identity/access-key`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ owner: address, message: challenge.message, signature }) });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? "Identity authorization failed");
+      window.localStorage.setItem("agenthub_identity_access_key", body.access_key);
       setMasterKey(body.access_key);
     } catch (err) { setError(err instanceof Error ? err.message : "Identity authorization failed"); }
   }
