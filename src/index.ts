@@ -29,6 +29,32 @@ import { clientIp, rateLimit } from "./security/rate-limit.js";
 const port = Number(process.env.PORT ?? 10000);
 const publicClient = createPublicClient({ chain: monad, transport: http() });
 
+function cors(req: any, res: any): boolean {
+  const origin = req.headers.origin;
+  const configuredOrigin = process.env.FRONTEND_ORIGIN;
+  const allowedOrigins = new Set(
+    [configuredOrigin, "https://agenthub2-gray.vercel.app"].filter(Boolean),
+  );
+
+  if (typeof origin === "string" && allowedOrigins.has(origin)) {
+    res.setHeader("access-control-allow-origin", origin);
+    res.setHeader("vary", "Origin");
+    res.setHeader("access-control-allow-methods", "GET,POST,OPTIONS");
+    res.setHeader(
+      "access-control-allow-headers",
+      "Content-Type, Authorization",
+    );
+  }
+
+  if (req.method === "OPTIONS") {
+    res.writeHead(204);
+    res.end();
+    return true;
+  }
+
+  return false;
+}
+
 function json(res: any, status: number, body: unknown, retryAfterMs = 0) {
   const headers: Record<string, string> = {
     "content-type": "application/json",
@@ -70,6 +96,7 @@ function bearer(req: any): string | undefined {
 
 const server = createServer(async (req, res) => {
   try {
+    if (cors(req, res)) return;
     if (await handlePerplRoute(req, res)) return;
     if (req.method === "GET" && req.url === "/health") {
       return json(res, 200, { ok: true });
