@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import {
   useAccount,
   useReadContract,
@@ -14,9 +13,9 @@ import { WalletConnect } from "../../components/WalletConnect";
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ||
   "https://agenthub2.onrender.com";
-const SKILL_URL = "/skill.md";
 const ACCESS_KEY_STORAGE = "agenthub_identity_access_key";
-const FACTORY = "0xb54B83513519Ec64e579F8F1CDdeaEF1CF4BB71b" as `0x${string}`;
+const FACTORY =
+  "0xb54B83513519Ec64e579F8F1CDdeaEF1CF4BB71b" as `0x${string}`;
 const ZERO = "0x0000000000000000000000000000000000000000";
 
 const FACTORY_ABI = [
@@ -35,20 +34,6 @@ const FACTORY_ABI = [
     outputs: [{ name: "account", type: "address" }],
   },
 ] as const;
-
-function promptFor(masterKey: string) {
-  return `Connect this agent to my AgentHub account.
-
-Read the AgentHub skill first:
-${SKILL_URL}
-
-Follow the skill's connection instructions.
-
-Master Key:
-${masterKey}
-
-Create a new agent connection for this account. Do not expose the Master Key after completing the connection. Use the returned connection token for subsequent AgentHub requests.`;
-}
 
 export default function OnboardingPage() {
   const { address, isConnected } = useAccount();
@@ -72,8 +57,10 @@ export default function OnboardingPage() {
   });
 
   const [agreed, setAgreed] = useState(false);
-  const [step, setStep] = useState<"wallet" | "risk" | "account" | "agent">("wallet");
-  const [masterKey, setMasterKey] = useState("");
+  const [step, setStep] = useState<
+    "wallet" | "risk" | "account" | "agent"
+  >("wallet");
+  const [connectionPrompt, setConnectionPrompt] = useState("");
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
 
@@ -93,15 +80,20 @@ export default function OnboardingPage() {
     setError("");
 
     try {
-      const challengeResponse = await fetch(`${API_URL}/api/identity/challenge`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ owner: address }),
-      });
+      const challengeResponse = await fetch(
+        `${API_URL}/api/identity/challenge`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ owner: address }),
+        },
+      );
       const challenge = await challengeResponse.json();
 
       if (!challengeResponse.ok) {
-        throw new Error(challenge.error ?? "Unable to start identity authorization");
+        throw new Error(
+          challenge.error ?? "Unable to start identity authorization",
+        );
       }
 
       const signature = await signMessageAsync({ message: challenge.message });
@@ -120,38 +112,60 @@ export default function OnboardingPage() {
         throw new Error(body.error ?? "Identity authorization failed");
       }
 
-      window.localStorage.setItem(ACCESS_KEY_STORAGE, body.access_key);
-      setMasterKey(body.access_key);
+      const accessKey = body.access_key;
+      window.localStorage.setItem(ACCESS_KEY_STORAGE, accessKey);
+
+      const promptResponse = await fetch(
+        `${API_URL}/api/agents/connect-prompt`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${accessKey}`,
+          },
+          body: JSON.stringify({}),
+        },
+      );
+      const promptBody = await promptResponse.json();
+
+      if (!promptResponse.ok) {
+        throw new Error(
+          promptBody.error ?? "Unable to create the agent connection prompt",
+        );
+      }
+
+      setConnectionPrompt(promptBody.prompt);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Identity authorization failed");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Identity authorization failed",
+      );
     }
   }
 
   async function copyPrompt() {
-    await navigator.clipboard.writeText(promptFor(masterKey));
+    await navigator.clipboard.writeText(connectionPrompt);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 2000);
   }
 
   return (
     <main className="onboarding-page">
-      <header className="onboarding-header">
-        <Link href="/" className="dashboard-brand">
-          <span className="brand-mark">A</span>
-          AGENTHUB
-        </Link>
-      </header>
-
       <section className="onboarding-card">
         {step === "wallet" && (
           <>
             <h1>Connect your wallet</h1>
             <p>
-              Your wallet establishes ownership of your AgentHub identity. It is never given to your agent.
+              Your wallet establishes ownership of your AgentHub identity. It
+              is never given to your agent.
             </p>
             <WalletConnect />
             {isConnected && (
-              <button className="button-primary" onClick={() => setStep("risk")}>
+              <button
+                className="button-primary"
+                onClick={() => setStep("risk")}
+              >
                 Continue
               </button>
             )}
@@ -161,10 +175,15 @@ export default function OnboardingPage() {
         {step === "risk" && (
           <>
             <h1>Understand the risks</h1>
-            <p>Connected agents can execute trades through your delegated trading account.</p>
+            <p>
+              Connected agents can execute trades through your delegated
+              trading account.
+            </p>
             <div className="risk-panel">
               <p>
-                I understand that trading carries risk and that I am authorizing an agent to execute supported trading actions through my delegated account.
+                I understand that trading carries risk and that I am
+                authorizing an agent to execute supported trading actions
+                through my delegated account.
               </p>
             </div>
             <label className="risk-check">
@@ -189,18 +208,24 @@ export default function OnboardingPage() {
           <>
             <h1>Create your agent account</h1>
             <p>
-              AgentHub creates a delegated trading account owned by your connected wallet. This is the address your agent will operate through.
+              AgentHub creates a delegated trading account owned by your
+              connected wallet. This is the address your agent will operate
+              through.
             </p>
 
             {existingAccount ? (
               <div className="risk-panel">
                 <strong>Agent trading account</strong>
                 <pre>{accountAddress}</pre>
-                <p className="muted">This account is already set up for this wallet.</p>
+                <p className="muted">
+                  This account is already set up for this wallet.
+                </p>
               </div>
             ) : (
               <>
-                <p className="muted">No agent trading account was found for this wallet.</p>
+                <p className="muted">
+                  No agent trading account was found for this wallet.
+                </p>
                 <button
                   className="button-primary"
                   disabled={!address || creating || confirming}
@@ -213,19 +238,27 @@ export default function OnboardingPage() {
                     })
                   }
                 >
-                  {creating || confirming ? "Creating account..." : "Create agent account"}
+                  {creating || confirming
+                    ? "Creating account..."
+                    : "Create agent account"}
                 </button>
                 {accountCreated && (
                   <div className="risk-panel">
                     <strong>Account created</strong>
-                    <p>The account is ready for agent connection. Funding is handled later from your dashboard.</p>
+                    <p>
+                      The account is ready for agent connection. Funding is
+                      handled later from your dashboard.
+                    </p>
                   </div>
                 )}
               </>
             )}
 
             {existingAccount && (
-              <button className="button-primary" onClick={() => setStep("agent")}>
+              <button
+                className="button-primary"
+                onClick={() => setStep("agent")}
+              >
                 Continue
               </button>
             )}
@@ -238,7 +271,9 @@ export default function OnboardingPage() {
                 Continue to agent setup
               </button>
             )}
-            {createError && <p className="error-text">{createError.message}</p>}
+            {createError && (
+              <p className="error-text">{createError.message}</p>
+            )}
           </>
         )}
 
@@ -246,24 +281,33 @@ export default function OnboardingPage() {
           <>
             <h1>Connect your agent</h1>
             <p>
-              Authorize this AgentHub identity, then copy the connection prompt into your agent. The agent reads the skill and exchanges the account-level Master Key for its own connection token.
+              Authorize this AgentHub identity, then copy the connection
+              prompt into your agent. The backend-generated prompt tells the
+              agent where to read the skill and how to exchange your identity
+              credential for its own connection token.
             </p>
 
-            {!masterKey ? (
-              <button className="button-primary" onClick={() => void authorizeIdentity()}>
+            {!connectionPrompt ? (
+              <button
+                className="button-primary"
+                onClick={() => void authorizeIdentity()}
+              >
                 Authorize AgentHub identity
               </button>
             ) : (
               <>
                 <div className="risk-panel">
-                  <p>Skill: {SKILL_URL}</p>
-                  <pre>{promptFor(masterKey)}</pre>
+                  <pre>{connectionPrompt}</pre>
                 </div>
-                <button className="button-primary" onClick={() => void copyPrompt()}>
+                <button
+                  className="button-primary"
+                  onClick={() => void copyPrompt()}
+                >
                   {copied ? "Copied" : "Copy connection prompt"}
                 </button>
                 <p className="muted">
-                  Keep the Master Key private. The agent should use its returned connection token for subsequent requests.
+                  Keep the identity credential private. Your agent should use
+                  the returned connection token for subsequent requests.
                 </p>
               </>
             )}
