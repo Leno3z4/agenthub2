@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react";
 
 const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  "https://agenthub2.onrender.com";
+  process.env.NEXT_PUBLIC_API_URL || "https://agenthub2.onrender.com";
 const ACCESS_KEY_STORAGE = "agenthub_identity_access_key";
 
 type Agent = {
@@ -13,9 +12,6 @@ type Agent = {
   status: "active" | "revoked";
   connector: string | null;
   connectionStatus: string | null;
-  expiresAt: string | null;
-  createdAt: string;
-  lastActive: string | null;
 };
 
 export function AgentSelector() {
@@ -29,16 +25,16 @@ export function AgentSelector() {
   async function loadAgents() {
     const key = window.localStorage.getItem(ACCESS_KEY_STORAGE);
     if (!key) return;
-
     setLoading(true);
     setError("");
     try {
       const response = await fetch(`${API_URL}/api/agents`, {
         headers: { Authorization: `Bearer ${key}` },
+        cache: "no-store",
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "Unable to load agents");
-      setAgents(data.agents ?? []);
+      setAgents(Array.isArray(data.agents) ? data.agents : []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load agents");
     } finally {
@@ -48,12 +44,7 @@ export function AgentSelector() {
 
   async function connectAnotherAgent() {
     const key = window.localStorage.getItem(ACCESS_KEY_STORAGE);
-    if (!key) {
-      setError("Reconnect your wallet to continue.");
-      return;
-    }
-
-    setError("");
+    if (!key) return setError("Reconnect your wallet to continue.");
     try {
       const response = await fetch(`${API_URL}/api/agents/connect-prompt`, {
         method: "POST",
@@ -66,6 +57,7 @@ export function AgentSelector() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "Unable to create connection prompt");
       setPrompt(data.prompt ?? "");
+      setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to create connection prompt");
     }
@@ -74,16 +66,12 @@ export function AgentSelector() {
   async function revokeAgent(id: string) {
     const key = window.localStorage.getItem(ACCESS_KEY_STORAGE);
     if (!key) return;
-
     const response = await fetch(`${API_URL}/api/agents/${encodeURIComponent(id)}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${key}` },
     });
     const data = await response.json();
-    if (!response.ok) {
-      setError(data.error ?? "Unable to disconnect agent");
-      return;
-    }
+    if (!response.ok) return setError(data.error ?? "Unable to disconnect agent");
     await loadAgents();
   }
 
@@ -97,57 +85,67 @@ export function AgentSelector() {
     void loadAgents();
   }, []);
 
+  const activeCount = agents.filter((agent) => agent.status === "active").length;
+
   return (
-    <section className="status-panel">
-      <div>
-        <h2>Agents</h2>
-        <p className="panel-note">Manage connected agents and create new agent connections.</p>
-      </div>
+    <div className="agent-selector">
+      <button
+        className="agent-selector-trigger"
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+      >
+        Agents
+        <span>{loading ? "..." : activeCount}</span>
+      </button>
 
-      <div>
-        <button className="action-button" onClick={() => setOpen(!open)}>
-          {loading ? "Loading agents..." : `${agents.length} connected agent${agents.length === 1 ? "" : "s"}`}
-        </button>
+      {open && (
+        <div className="agent-selector-menu">
+          <div className="agent-selector-heading">
+            <strong>Your agents</strong>
+            <button type="button" onClick={() => void loadAgents()}>
+              Refresh
+            </button>
+          </div>
 
-        {open && (
-          <div className="risk-panel">
-            {agents.length === 0 && !loading && <p className="muted">No connected agents yet.</p>}
+          {agents.length === 0 && !loading && (
+            <p className="muted">No connected agents yet.</p>
+          )}
 
-            {agents.map((agent) => (
-              <div key={agent.id} className="agent-row">
-                <div>
-                  <strong>{agent.name}</strong>
-                  <p className="muted">
-                    {agent.connector ?? "No connector"} · {agent.connectionStatus ?? agent.status}
-                  </p>
-                </div>
-                <button className="action-button" onClick={() => void revokeAgent(agent.id)}>
-                  Disconnect
-                </button>
+          {agents.map((agent) => (
+            <div key={agent.id} className="agent-selector-row">
+              <div>
+                <strong>{agent.name}</strong>
+                <p className="muted">
+                  {agent.connector ?? "Agent"} · {agent.connectionStatus ?? agent.status}
+                </p>
               </div>
-            ))}
-
-            <div className="agent-connect-block">
-              <h3>Connect another agent</h3>
-              <p className="muted">Generate a connection prompt for another agent to access this account.</p>
-              <button className="button-primary" onClick={() => void connectAnotherAgent()}>
-                Generate connection prompt
+              <button type="button" onClick={() => void revokeAgent(agent.id)}>
+                Disconnect
               </button>
             </div>
+          ))}
 
-            {prompt && (
-              <div className="agent-prompt">
-                <pre>{prompt}</pre>
-                <button className="button-primary" onClick={() => void copyPrompt()}>
-                  {copied ? "Copied" : "Copy prompt"}
-                </button>
-              </div>
-            )}
-
-            {error && <p className="error-text">{error}</p>}
+          <div className="agent-selector-connect">
+            <strong>Connect another agent</strong>
+            <p className="muted">Create a prompt for another agent to access this account.</p>
+            <button className="button-primary" type="button" onClick={() => void connectAnotherAgent()}>
+              Generate connection prompt
+            </button>
           </div>
-        )}
-      </div>
-    </section>
+
+          {prompt && (
+            <div className="agent-selector-prompt">
+              <pre>{prompt}</pre>
+              <button className="button-primary" type="button" onClick={() => void copyPrompt()}>
+                {copied ? "Copied" : "Copy prompt"}
+              </button>
+            </div>
+          )}
+
+          {error && <p className="error-text">{error}</p>}
+        </div>
+      )}
+    </div>
   );
 }
