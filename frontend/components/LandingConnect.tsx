@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 
 const ACCESS_KEY_STORAGE = "agenthub_identity_access_key";
 
-export function LandingConnect() {
+export function LandingConnect({ className }: { className?: string }) {
   const router = useRouter();
   const { isConnected } = useAccount();
   const { connectors, connect, isPending } = useConnect();
@@ -39,7 +39,7 @@ export function LandingConnect() {
   }
 
   return (
-    <button className="landing-connect-button" onClick={handleClick} disabled={isPending}>
+    <button className={className} onClick={handleClick} disabled={isPending}>
       {isPending ? "Connecting" : "Connect wallet"}
     </button>
   );
