@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://agenthub2.onrender.com";
 const ACCESS_KEY_STORAGE = "agenthub_identity_access_key";
 
 type Agent = {
