@@ -4,6 +4,7 @@ import { DepositPanel } from "../../components/DepositPanel";
 import { Positions } from "../../components/Positions";
 import { KillSwitch } from "../../components/KillSwitch";
 import { AgentIdentity } from "../../components/AgentIdentity";
+import { AgentSelector } from "../../components/AgentSelector";
 
 export default function DashboardPage() {
   return (
@@ -15,7 +16,6 @@ export default function DashboardPage() {
         </Link>
 
         <div className="dashboard-nav-right">
-          <span className="network-tag">ONCHAIN</span>
           <span className="wallet-address">0x••••••••</span>
         </div>
       </header>
@@ -23,49 +23,22 @@ export default function DashboardPage() {
       <div className="dashboard-container">
         <div className="dashboard-heading">
           <div>
-            <div className="eyebrow">CONTROL CENTER / 01</div>
             <h1>Agent dashboard</h1>
             <p>
-              Monitor your agent, capital, permissions and onchain
-              market execution from one interface.
+              Monitor your agent, capital, permissions and onchain market execution from one interface.
             </p>
           </div>
-
-          <KillSwitch />
         </div>
 
         <AgentIdentity />
+        <AgentSelector />
 
         <section className="dashboard-grid">
           <DepositPanel />
           <Positions />
         </section>
 
-        <section className="markets-panel">
-          <div className="panel-label">SUPPORTED MARKETS</div>
-
-          <div className="market-list">
-            <div>
-              <strong>Onchain Spot</strong>
-              <span>ACTIVE</span>
-            </div>
-
-            <div>
-              <strong>Perpetuals</strong>
-              <span>ACTIVE</span>
-            </div>
-
-            <div>
-              <strong>Prediction Markets</strong>
-              <span>READY</span>
-            </div>
-
-            <div>
-              <strong>Additional Venues</strong>
-              <span>EXPANDING</span>
-            </div>
-          </div>
-        </section>
+        <KillSwitch />
       </div>
     </main>
   );
