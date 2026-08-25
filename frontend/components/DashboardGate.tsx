@@ -15,11 +15,17 @@ export function DashboardGate({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    if (!isConnected) {
+      window.localStorage.removeItem(ACCESS_KEY_STORAGE);
+      router.replace("/onboarding");
+      return;
+    }
+
     const hasSavedIdentity = Boolean(
       window.localStorage.getItem(ACCESS_KEY_STORAGE),
     );
 
-    if (!isConnected || !hasSavedIdentity) {
+    if (!hasSavedIdentity) {
       router.replace("/onboarding");
     }
   }, [isConnected, isConnecting, isReconnecting, router]);
