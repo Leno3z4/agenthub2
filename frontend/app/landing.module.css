@@ -17,11 +17,11 @@
 }
 
 .logo {
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 28px;
+  font-family: "Brush Script MT", "Segoe Script", "Snell Roundhand", cursive;
+  font-size: 32px;
   font-style: italic;
   font-weight: 600;
-  letter-spacing: -0.06em;
+  letter-spacing: -0.04em;
 }
 
 .navLinks {
@@ -269,7 +269,7 @@
   }
 
   .logo {
-    font-size: 24px;
+    font-size: 28px;
   }
 
   .navLinks {
