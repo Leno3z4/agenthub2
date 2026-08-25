@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { AgentIdentity } from "../../components/AgentIdentity";
 import { AgentSelector } from "../../components/AgentSelector";
 import { DepositPanel } from "../../components/DepositPanel";
@@ -11,11 +10,6 @@ export default function DashboardPage() {
     <DashboardGate>
       <main className="dashboard">
         <header className="dashboard-nav">
-          <Link href="/" className="dashboard-brand">
-            <span className="brand-mark">A</span>
-            AGENTHUB
-          </Link>
-
           <div className="dashboard-nav-right">
             <span className="wallet-address">Connected wallet</span>
           </div>
