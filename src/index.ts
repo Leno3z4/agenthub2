@@ -12,6 +12,7 @@ import { handlePerplKillSwitchRoute } from "./perpl/kill-switch-route.js";
 import { checkDelegatedAccount } from "./frontend/delegated-account.js";
 import { monad } from "./config.js";
 import { handleAgentRoute } from "./agent/routes.js";
+import { handleSkillRoute } from "./agent/skill-route.js";
 import {
   consumeIdentityChallenge,
   getOrCreateIdentity,
@@ -31,9 +32,10 @@ const publicClient = createPublicClient({ chain: monad, transport: http() });
 
 function cors(req: any, res: any): boolean {
   const origin = req.headers.origin;
-  const configuredOrigin = process.env.FRONTEND_ORIGIN;
   const allowedOrigins = new Set(
-    [configuredOrigin, "https://agenthub2-gray.vercel.app"].filter(Boolean),
+    [process.env.FRONTEND_ORIGIN, "https://agenthub2-gray.vercel.app"].filter(
+      Boolean,
+    ),
   );
 
   if (typeof origin === "string" && allowedOrigins.has(origin)) {
@@ -67,7 +69,13 @@ function json(res: any, status: number, body: unknown, retryAfterMs = 0) {
   res.end(JSON.stringify(body));
 }
 
-function limited(req: any, res: any, scope: string, max: number, windowMs: number): boolean {
+function limited(
+  req: any,
+  res: any,
+  scope: string,
+  max: number,
+  windowMs: number,
+): boolean {
   const result = rateLimit(`${scope}:${clientIp(req.headers)}`, max, windowMs);
   if (result.allowed) return false;
   json(res, 429, { error: "Too many requests" }, result.retryAfterMs);
@@ -97,6 +105,7 @@ function bearer(req: any): string | undefined {
 const server = createServer(async (req, res) => {
   try {
     if (cors(req, res)) return;
+    if (await handleSkillRoute(req, res)) return;
     if (await handlePerplRoute(req, res)) return;
     if (req.method === "GET" && req.url === "/health") {
       return json(res, 200, { ok: true });
@@ -143,15 +152,22 @@ const server = createServer(async (req, res) => {
       const owner = String(data.owner ?? "") as Address;
       const message = String(data.message ?? "");
       const signature = String(data.signature ?? "") as Hex;
-      if (!/^0x[a-fA-F0-9]{40}$/.test(owner) || !/^0x[a-fA-F0-9]+$/.test(signature)) {
-        return json(res, 400, { error: "Invalid identity authorization request" });
+      if (
+        !/^0x[a-fA-F0-9]{40}$/.test(owner) ||
+        !/^0x[a-fA-F0-9]+$/.test(signature)
+      ) {
+        return json(res, 400, {
+          error: "Invalid identity authorization request",
+        });
       }
       const delegated = await checkDelegatedAccount(owner, publicClient);
       if (!delegated.exists) {
         return json(res, 409, { error: "Delegated account does not exist" });
       }
       if (!await consumeIdentityChallenge({ owner, message, signature })) {
-        return json(res, 401, { error: "Invalid or expired identity authorization" });
+        return json(res, 401, {
+          error: "Invalid or expired identity authorization",
+        });
       }
       const identity = await getOrCreateIdentity(owner, delegated.address);
       const accessKey = await issueIdentityAccessKey(identity);
@@ -171,9 +187,14 @@ const server = createServer(async (req, res) => {
       const accessToken = String(
         data.identity_access_key ?? data.connection_token ?? bearer(req) ?? "",
       );
-      if (!accessToken) return json(res, 401, { error: "Identity access key required" });
+      if (!accessToken) {
+        return json(res, 401, { error: "Identity access key required" });
+      }
       const identity = await authenticateIdentityAccessKey(accessToken);
-      const agent = await createAgent(identity.id, String(data.agent_name ?? "Agent"));
+      const agent = await createAgent(
+        identity.id,
+        String(data.agent_name ?? "Agent"),
+      );
       const credential = await issueAgentCredential({
         agentId: agent.id,
         identityId: identity.id,
@@ -187,11 +208,16 @@ const server = createServer(async (req, res) => {
       });
     }
 
-    if (req.method === "POST" && req.url === "/api/identity/access-key/revoke") {
+    if (
+      req.method === "POST" &&
+      req.url === "/api/identity/access-key/revoke"
+    ) {
       if (limited(req, res, "identity-revoke", 5, 60_000)) return;
       const data = await body(req);
       const accessToken = String(data.identity_access_key ?? bearer(req) ?? "");
-      if (!accessToken) return json(res, 401, { error: "Identity access key required" });
+      if (!accessToken) {
+        return json(res, 401, { error: "Identity access key required" });
+      }
       const identity = await authenticateIdentityAccessKey(accessToken);
       const id = String(data.access_key_id ?? "");
       if (!id || !await revokeIdentityAccessKey(id, identity.id)) {
@@ -211,7 +237,9 @@ const server = createServer(async (req, res) => {
           await checkDelegatedAccount(delegatedMatch[1] as Address, publicClient),
         );
       } catch {
-        return json(res, 502, { error: "Unable to check delegated account" });
+        return json(res, 502, {
+          error: "Unable to check delegated account",
+        });
       }
     }
 
