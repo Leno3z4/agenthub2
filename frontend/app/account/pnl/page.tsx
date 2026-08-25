@@ -1,10 +1,11 @@
-import { AccountSectionPage } from "../../../components/AccountSectionPage";
+import { AccountDataPage } from "../../../components/AccountDataPage";
 
 export default function PnlPage() {
   return (
-    <AccountSectionPage
+    <AccountDataPage
+      mode="pnl"
       title="PnL"
-      description="Track realized and unrealized performance for this delegated account."
+      description="Track position performance from the live Perpl state feed."
     />
   );
 }
