@@ -1,8 +1,11 @@
 .page {
   min-height: 100vh;
   overflow: hidden;
-  background: #050505;
-  color: #f5f2e9;
+  background:
+    radial-gradient(circle at 78% 18%, rgba(128, 80, 160, 0.18), transparent 34%),
+    radial-gradient(circle at 12% 82%, rgba(67, 36, 92, 0.22), transparent 38%),
+    var(--purple-950);
+  color: var(--text);
 }
 
 .nav {
@@ -33,20 +36,20 @@
 }
 
 .navLinks a {
-  color: #b9b5ad;
+  color: var(--muted);
   font-size: 11px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
 .navLinks a:hover {
-  color: #f5f2e9;
+  color: var(--text);
 }
 
 .connect {
-  border: 1px solid #d4c774;
-  background: #d4c774;
-  color: #080808;
+  border: 1px solid var(--cream);
+  background: var(--cream);
+  color: var(--purple-950);
   padding: 11px 16px;
   border-radius: 3px;
   font-size: 10px;
@@ -56,7 +59,7 @@
 }
 
 .connect:hover {
-  background: #e1d995;
+  background: var(--cream-light);
 }
 
 .hero {
@@ -75,7 +78,7 @@
   right: -120px;
   top: 30px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(126, 78, 255, 0.26), rgba(0, 0, 0, 0) 68%);
+  background: radial-gradient(circle, rgba(128, 80, 160, 0.24), transparent 68%);
   filter: blur(12px);
   pointer-events: none;
 }
@@ -87,7 +90,7 @@
   left: -180px;
   bottom: 20px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(212, 199, 116, 0.16), rgba(0, 0, 0, 0) 70%);
+  background: radial-gradient(circle, rgba(67, 36, 92, 0.3), transparent 70%);
   filter: blur(18px);
   pointer-events: none;
 }
@@ -108,13 +111,13 @@
 }
 
 .heroTitle span {
-  color: #d4c774;
+  color: var(--cream);
 }
 
 .heroDescription {
   max-width: 430px;
   margin: 36px 0 0;
-  color: #aaa7a0;
+  color: var(--muted);
   font-size: 16px;
   line-height: 1.55;
 }
@@ -140,24 +143,26 @@
 }
 
 .primary {
-  background: #d4c774;
-  color: #080808;
+  background: var(--cream);
+  color: var(--purple-950);
 }
 
 .secondary {
-  border: 1px solid #4a4945;
-  color: #f5f2e9;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
 }
 
 .secondary:hover {
-  border-color: #f5f2e9;
+  border-color: var(--cream);
+  background: rgba(128, 80, 160, 0.1);
 }
 
 .textSection {
   width: min(1240px, 92vw);
   margin: 0 auto;
   padding: 120px 0;
-  border-top: 1px solid #222220;
+  border-top: 1px solid var(--border);
 }
 
 .textHeading {
@@ -170,7 +175,7 @@
 }
 
 .textHeading span {
-  color: #77746e;
+  color: var(--purple-500);
 }
 
 .featureList {
@@ -184,15 +189,15 @@
   gap: 28px;
   align-items: start;
   padding: 30px 0;
-  border-top: 1px solid #222220;
+  border-top: 1px solid var(--border);
 }
 
 .feature:last-child {
-  border-bottom: 1px solid #222220;
+  border-bottom: 1px solid var(--border);
 }
 
 .featureNumber {
-  color: #6f6d68;
+  color: var(--muted);
   font-size: 10px;
   letter-spacing: 0.12em;
 }
@@ -207,7 +212,7 @@
 .feature p {
   max-width: 430px;
   margin: 0;
-  color: #918f89;
+  color: var(--muted);
   font-size: 14px;
   line-height: 1.65;
 }
@@ -235,7 +240,7 @@
 
 .agentCopy p {
   margin: 0;
-  color: #918f89;
+  color: var(--muted);
   font-size: 14px;
   line-height: 1.7;
 }
@@ -243,7 +248,7 @@
 .agentLink {
   display: inline-block;
   margin-top: 24px;
-  color: #d4c774;
+  color: var(--cream);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -254,11 +259,11 @@
   width: min(1240px, 92vw);
   min-height: 72px;
   margin: 0 auto;
-  border-top: 1px solid #222220;
+  border-top: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  color: #696762;
+  color: var(--muted);
   font-size: 9px;
   letter-spacing: 0.12em;
 }
