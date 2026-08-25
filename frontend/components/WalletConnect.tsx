@@ -4,7 +4,7 @@ import { useAccount, useConnect, useDisconnect } from "wagmi";
 
 export function WalletConnect() {
   const { address, isConnected } = useAccount();
-  const { connectors, connect, isPending, error } = useConnect();
+  const { connectors, connect, isPending } = useConnect();
   const { disconnect } = useDisconnect();
 
   if (isConnected && address) {
@@ -27,7 +27,6 @@ export function WalletConnect() {
       >
         {isPending ? "Connecting..." : "Connect wallet"}
       </button>
-      {error && <p className="error-text">{error.message}</p>}
     </div>
   );
 }
