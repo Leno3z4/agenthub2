@@ -1,105 +1,104 @@
 import Link from "next/link";
+import styles from "./landing.module.css";
+import { LandingConnect } from "../components/LandingConnect";
 import { DashboardLink } from "../components/DashboardLink";
-import { Navbar } from "../components/Navbar";
 
-const markets = [
+const features = [
   {
-    name: "Perpetual Trading",
-    description: "Connect an agent to a delegated trading account and execute supported Perpl markets.",
-    status: "LIVE",
+    name: "Execution",
+    description: "Give an authorized agent access to a dedicated trading connection without handing over your primary wallet.",
   },
   {
-    name: "Agent Execution",
-    description: "Give an agent a connection to your account without handing over your primary wallet.",
-    status: "LIVE",
+    name: "Delegation",
+    description: "Your wallet remains the owner while the agent operates through the account you explicitly authorize.",
   },
   {
-    name: "More Connections",
-    description: "Additional trading connections will be added as they become available.",
-    status: "BUILDING",
+    name: "Control",
+    description: "Monitor the connection, manage agents, and close active trades from your AgentHub dashboard.",
   },
 ];
 
 export default function Home() {
   return (
-    <main className="site">
-      <Navbar />
+    <main className={styles.page}>
+      <header className={styles.nav}>
+        <Link href="/" className={styles.logo}>
+          Agenthub
+        </Link>
 
-      <section className="hero">
-        <div className="hero-copy">
-          <h1>
-            Give agents<br />
-            <span>markets to trade.</span>
+        <nav className={styles.navLinks}>
+          <a href="#docs">Docs</a>
+          <DashboardLink href="/onboarding">Launch</DashboardLink>
+        </nav>
+
+        <LandingConnect className={styles.connect} />
+      </header>
+
+      <section className={styles.hero}>
+        <div className={styles.heroGlow} />
+        <div className={styles.heroGlowTwo} />
+
+        <div className={styles.heroContent}>
+          <h1 className={styles.heroTitle}>
+            Give agents
+            <br />
+            <span>room to trade.</span>
           </h1>
-          <p>
-            Connect your wallet, create your AgentHub identity, and give your agent a dedicated connection to trade through your delegated account.
-          </p>
-          <div className="hero-actions">
-            <DashboardLink className="button-primary">
-              Launch AgentHub
-            </DashboardLink>
-            <DashboardLink className="button-secondary">
-              Connect an agent
-            </DashboardLink>
-          </div>
-        </div>
 
-        <div className="hero-index">
-          <div className="index-label">SYSTEM</div>
-          <div className="index-value">AGENT / 01</div>
-          <div className="index-line" />
-          <div className="index-row"><span>NETWORK</span><span>ONCHAIN</span></div>
-          <div className="index-row"><span>EXECUTION</span><span>NON-CUSTODIAL</span></div>
-          <div className="index-row"><span>ACCESS</span><span>DELEGATED</span></div>
+          <p className={styles.heroDescription}>
+            Connect autonomous agents to dedicated onchain trading accounts while keeping ownership and control in your hands.
+          </p>
+
+          <div className={styles.heroActions}>
+            <DashboardLink href="/onboarding" className={styles.primary}>
+              Launch
+            </DashboardLink>
+            <LandingConnect className={styles.secondary} />
+          </div>
         </div>
       </section>
 
-      <section className="ticker">
-        <span>AGENTS</span>
-        <span>MARKETS</span>
-        <span>EXECUTION</span>
-        <span>ONCHAIN</span>
-        <span>DELEGATION</span>
-      </section>
+      <section className={styles.textSection} id="docs">
+        <h2 className={styles.textHeading}>
+          Infrastructure for
+          <br />
+          <span>autonomous execution.</span>
+        </h2>
 
-      <section id="markets" className="markets-section">
-        <div className="section-heading">
-          <div>
-            <h2>Built for autonomous execution.</h2>
-          </div>
-          <p>
-            AgentHub separates wallet ownership from agent execution. Your primary wallet stays under your control while authorized agents use delegated trading connections.
-          </p>
-        </div>
-
-        <div className="market-grid">
-          {markets.map((market, index) => (
-            <article className="market-card" key={market.name}>
-              <div className="card-number">0{index + 1}</div>
-              <div className="card-status">{market.status}</div>
-              <h3>{market.name}</h3>
-              <p>{market.description}</p>
+        <div className={styles.featureList}>
+          {features.map((feature, index) => (
+            <article className={styles.feature} key={feature.name}>
+              <span className={styles.featureNumber}>0{index + 1}</span>
+              <h3>{feature.name}</h3>
+              <p>{feature.description}</p>
             </article>
           ))}
         </div>
       </section>
 
-      <section id="agents" className="agent-section">
+      <section className={styles.agentSection}>
         <div>
-          <h2>Your agent.<br />Your authorization.</h2>
+          <h2>
+            Your wallet.
+            <br />
+            Your agent.
+            <br />
+            Your control.
+          </h2>
         </div>
-        <div className="agent-copy">
+
+        <div className={styles.agentCopy}>
           <p>
-            Your wallet proves ownership during onboarding. AgentHub then creates an identity and a separate connection credential for your agent.
+            Start with your wallet, create your trading account, then connect an agent using the guided connection flow. Existing accounts return directly to the dashboard.
           </p>
-          <DashboardLink className="text-link">
-            Configure an agent
+          <DashboardLink href="/onboarding" className={styles.agentLink}>
+            Get started
           </DashboardLink>
         </div>
       </section>
 
-      <footer className="footer">
-        <span>AGENTHUB</span>
+      <footer className={styles.footer}>
+        <span>Agenthub</span>
         <span>ONCHAIN AGENT INFRASTRUCTURE</span>
         <span>2026</span>
       </footer>
