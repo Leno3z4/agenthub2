@@ -4,7 +4,9 @@ import { useEffect } from "react";
 import { useAccount, useConnect } from "wagmi";
 import { useRouter } from "next/navigation";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://agenthub2.onrender.com";
 const ACCESS_KEY_STORAGE = "agenthub_identity_access_key";
 
 async function hasRegisteredAgent(accessKey: string) {
