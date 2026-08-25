@@ -1,0 +1,180 @@
+:root {
+  --purple-950: #050505;
+  --purple-900: #0a0a0a;
+  --purple-800: #101010;
+  --purple-700: #171717;
+  --cream: #d8cc79;
+  --cream-light: #eee6ad;
+  --text: #f4f1e8;
+  --muted: #96938b;
+  --border: #262626;
+  --surface: transparent;
+  --surface-light: #0d0d0d;
+}
+
+body {
+  background: #050505;
+  color: var(--text);
+}
+
+.dashboard,
+.onboarding-page {
+  background: #050505;
+}
+
+.dashboard-nav {
+  background: rgba(5, 5, 5, 0.92);
+  border-bottom-color: #1e1e1e;
+}
+
+.dashboard-brand,
+.onboarding-header {
+  display: none;
+}
+
+.dashboard-container {
+  padding-top: 92px;
+}
+
+.dashboard-heading h1,
+.onboarding-card h1 {
+  font-weight: 500;
+  letter-spacing: -0.065em;
+}
+
+.status-panel,
+.dashboard-panel,
+.dashboard-card,
+.deposit-panel,
+.positions-panel,
+.risk-panel,
+.onboarding-card {
+  background: transparent;
+  border-color: #252525;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.status-panel {
+  padding: 32px 0;
+  border-left: 0;
+  border-right: 0;
+}
+
+.status-icon {
+  border-radius: 0;
+  background: transparent;
+}
+
+.action-button,
+.button-primary,
+.button-secondary,
+.wallet-button {
+  border-radius: 2px;
+  box-shadow: none;
+}
+
+.action-button {
+  background: transparent;
+  border-color: #353535;
+  color: var(--text);
+}
+
+.action-button:hover {
+  border-color: var(--cream);
+  background: transparent;
+}
+
+.risk-panel {
+  padding: 22px 0;
+}
+
+.agent-row,
+.agent-connect-block,
+.agent-prompt {
+  border-color: #252525;
+  border-radius: 0;
+  background: transparent;
+}
+
+.dashboard-grid {
+  gap: 0;
+}
+
+.kill-switch {
+  margin-top: 70px;
+  padding: 24px 0;
+  width: 100%;
+  border: 0;
+  border-top: 1px solid #5c3835;
+  border-radius: 0;
+  text-align: left;
+  background: transparent;
+}
+
+.onboarding-page {
+  min-height: 100svh;
+  min-height: 100dvh;
+  padding: 24px;
+}
+
+.onboarding-card {
+  width: min(680px, 100%);
+  padding: 20px 0;
+}
+
+.onboarding-card .risk-panel {
+  border: 0;
+  border-top: 1px solid #252525;
+  border-bottom: 1px solid #252525;
+  text-align: left;
+}
+
+.onboarding-card pre,
+.agent-prompt pre {
+  background: #090909;
+  border: 1px solid #1f1f1f;
+  border-radius: 0;
+  color: #d9d6cc;
+  overflow-x: auto;
+  padding: 18px;
+}
+
+.onboarding-card .button-primary {
+  border-radius: 2px;
+}
+
+.muted,
+.panel-note,
+.dashboard-heading p {
+  color: var(--muted);
+}
+
+.error-text {
+  color: #d89a91;
+}
+
+@media (max-width: 760px) {
+  .dashboard-container {
+    width: min(92vw, 680px);
+    padding-top: 64px;
+    padding-bottom: 80px;
+  }
+
+  .dashboard-heading {
+    margin-bottom: 32px;
+  }
+
+  .status-panel {
+    padding: 26px 0;
+  }
+
+  .status-data {
+    flex-wrap: wrap;
+    gap: 24px;
+  }
+
+  .kill-switch {
+    margin-top: 48px;
+  }
+}
