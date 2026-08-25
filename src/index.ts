@@ -245,6 +245,7 @@ const server = createServer(async (req, res) => {
 
     return json(res, 404, { error: "Not found" });
   } catch {
+    if (res.writableEnded) return;
     return json(res, 400, { error: "Bad request" });
   }
 });
