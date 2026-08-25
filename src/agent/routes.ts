@@ -41,19 +41,20 @@ export async function handleAgentRoute(
   req: IncomingMessage,
   res: ServerResponse,
   body: Record<string, unknown>,
-) {
+): Promise<boolean> {
   if (req.method === "GET" && req.url === "/api/agents") {
     try {
       const identity = await authenticate(req, body);
       const agents = await findAgentsByIdentity(identity.id);
-      return json(res, 200, {
+      json(res, 200, {
         identity_id: identity.id,
         delegated_account: identity.delegatedAccount,
         agents,
       });
     } catch {
-      return json(res, 401, { error: "Identity access key required" });
+      json(res, 401, { error: "Identity access key required" });
     }
+    return true;
   }
 
   if (req.method === "POST" && req.url === "/api/agents/connect-prompt") {
@@ -75,14 +76,15 @@ export async function handleAgentRoute(
         "Do not expose or log the Master Key.",
       ].join("\n");
 
-      return json(res, 200, {
+      json(res, 200, {
         prompt,
         skill_url: skillUrl,
         expires_at: masterKey.expiresAt,
       });
     } catch {
-      return json(res, 401, { error: "Identity access key required" });
+      json(res, 401, { error: "Identity access key required" });
     }
+    return true;
   }
 
   const revokeMatch = req.url?.match(/^\/api\/agents\/([^/]+)$/);
@@ -91,15 +93,17 @@ export async function handleAgentRoute(
       const identity = await authenticate(req, body);
       const revoked = await revokeDbAgent(revokeMatch[1], identity.id);
       if (!revoked) {
-        return json(res, 404, { error: "Agent not found" });
+        json(res, 404, { error: "Agent not found" });
+      } else {
+        json(res, 200, {
+          revoked: true,
+          agent_id: revokeMatch[1],
+        });
       }
-      return json(res, 200, {
-        revoked: true,
-        agent_id: revokeMatch[1],
-      });
     } catch {
-      return json(res, 401, { error: "Identity access key required" });
+      json(res, 401, { error: "Identity access key required" });
     }
+    return true;
   }
 
   return false;
