@@ -306,7 +306,7 @@ export default function OnboardingPage() {
                 >
                   {copied ? "Copied" : "Copy connection prompt"}
                 </button>
-                <AgentConnectionChecker />
+                <AgentConnectionChecker enabled={true} />
                 <p className="muted">
                   Keep the identity credential private. Your agent should use
                   the returned connection token for subsequent requests.
