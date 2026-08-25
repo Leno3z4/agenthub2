@@ -1,5 +1,6 @@
 import { AgentIdentity } from "../../components/AgentIdentity";
 import { AgentSelector } from "../../components/AgentSelector";
+import { DashboardNavigation } from "../../components/DashboardNavigation";
 import { DepositPanel } from "../../components/DepositPanel";
 import { KillSwitch } from "../../components/KillSwitch";
 import { Positions } from "../../components/Positions";
@@ -10,6 +11,7 @@ export default function DashboardPage() {
     <DashboardGate>
       <main className="dashboard">
         <header className="dashboard-nav">
+          <DashboardNavigation />
           <div className="dashboard-nav-right">
             <span className="wallet-address">Connected wallet</span>
           </div>
