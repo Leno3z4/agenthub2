@@ -3,7 +3,6 @@ import "./globals.css";
 import "./onboarding-mobile.css";
 import "./site-theme.css";
 import { Providers } from "./providers";
-import { AgentConnectionWatcher } from "../components/AgentConnectionWatcher";
 
 export const metadata: Metadata = {
   title: "AgentHub",
@@ -18,10 +17,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <Providers>
-          <AgentConnectionWatcher />
-          {children}
-        </Providers>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
