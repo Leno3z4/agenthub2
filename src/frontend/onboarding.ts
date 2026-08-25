@@ -32,18 +32,22 @@ export async function fundDelegatedAccount(params: {
 }
 
 export async function createPerplAccountFromWallet(params: {
+  publicClient: PublicClient;
   walletClient: WalletClient;
   owner: Address;
   delegatedAccount: Address;
   exchange: Address;
-  amount: bigint;
+  collateralToken: Address;
+  amountDisplay: string;
+  decimals: number;
 }) {
-  const plan = buildPerplOnboardingPlan({
-    collateralToken: params.token,
+  const plan = await buildPerplOnboardingPlan({
+    publicClient: params.publicClient,
+    collateralToken: params.collateralToken,
     exchange: params.exchange,
     delegatedAccount: params.delegatedAccount,
-    amountDisplay: "0",
-    decimals: 0,
+    amountDisplay: params.amountDisplay,
+    decimals: params.decimals,
   });
   return submitOwnerDelegatedCall({
     walletClient: params.walletClient,
