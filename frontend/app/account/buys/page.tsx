@@ -1,10 +1,11 @@
-import { AccountSectionPage } from "../../../components/AccountSectionPage";
+import { AccountDataPage } from "../../../components/AccountDataPage";
 
 export default function BuysPage() {
   return (
-    <AccountSectionPage
+    <AccountDataPage
+      mode="buys"
       title="Buys"
-      description="Review buy-side executions made through this delegated account."
+      description="Review buy-side orders currently available from the live Perpl state feed."
     />
   );
 }
