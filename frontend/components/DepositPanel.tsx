@@ -35,7 +35,6 @@ export function DepositPanel() {
 
       <button className="action-button" disabled={!amount}>
         Deposit to agent
-        <span>↗</span>
       </button>
 
       <p className="panel-note">
