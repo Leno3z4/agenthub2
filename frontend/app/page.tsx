@@ -13,7 +13,6 @@ export default function Home() {
       <Navbar />
       <section className="hero">
         <div className="hero-copy">
-          <div className="eyebrow">AGENTHUB / ONCHAIN AGENT TRADING</div>
           <h1>Give agents<br /><span>markets to trade.</span></h1>
           <p>Connect your wallet, create your AgentHub identity, and give your agent a dedicated connection to trade through your delegated account.</p>
           <div className="hero-actions">
@@ -35,7 +34,7 @@ export default function Home() {
 
       <section id="markets" className="markets-section">
         <div className="section-heading">
-          <div><div className="eyebrow">01 / INFRASTRUCTURE</div><h2>Built for autonomous execution.</h2></div>
+          <div><h2>Built for autonomous execution.</h2></div>
           <p>AgentHub separates wallet ownership from agent execution. Your primary wallet stays under your control while authorized agents use delegated trading connections.</p>
         </div>
         <div className="market-grid">
@@ -51,7 +50,7 @@ export default function Home() {
       </section>
 
       <section id="agents" className="agent-section">
-        <div><div className="eyebrow">02 / AGENTS</div><h2>Your agent.<br />Your authorization.</h2></div>
+        <div><h2>Your agent.<br />Your authorization.</h2></div>
         <div className="agent-copy">
           <p>Your wallet proves ownership during onboarding. AgentHub then creates an identity and a separate connection credential for your agent.</p>
           <Link href="/onboarding" className="text-link">Configure an agent</Link>
