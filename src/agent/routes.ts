@@ -3,10 +3,9 @@ import {
   authenticateIdentityAccessKey,
   issueIdentityAccessKey,
 } from "./auth.js";
-import {
-  findAgentsByIdentity,
-  revokeDbAgent,
-} from "../db/repositories.js";
+import { findAgentsByIdentity, revokeDbAgent } from "../db/repositories.js";
+
+const DEFAULT_SKILL_URL = "https://agenthub2.onrender.com/skill.md";
 
 function json(res: ServerResponse, status: number, body: unknown) {
   res.writeHead(status, {
@@ -18,14 +17,21 @@ function json(res: ServerResponse, status: number, body: unknown) {
 
 function accessKey(req: IncomingMessage, body: Record<string, unknown>) {
   const authorization = req.headers.authorization;
-  if (typeof authorization === "string" && authorization.startsWith("Bearer ")) {
+  if (
+    typeof authorization === "string" &&
+    authorization.startsWith("Bearer ")
+  ) {
     return authorization.slice(7).trim();
   }
+
   const value = body.identity_access_key ?? body.master_key;
   return typeof value === "string" ? value.trim() : "";
 }
 
-async function authenticate(req: IncomingMessage, body: Record<string, unknown>) {
+async function authenticate(
+  req: IncomingMessage,
+  body: Record<string, unknown>,
+) {
   const key = accessKey(req, body);
   if (!key) throw new Error("Identity access key required");
   return authenticateIdentityAccessKey(key);
@@ -54,7 +60,8 @@ export async function handleAgentRoute(
     try {
       const identity = await authenticate(req, body);
       const masterKey = await issueIdentityAccessKey(identity);
-      const skillUrl = process.env.AGENTHUB_SKILL_URL ?? "/skill.md";
+      const skillUrl =
+        process.env.AGENTHUB_SKILL_URL ?? DEFAULT_SKILL_URL;
       const prompt = [
         "Connect this agent to my AgentHub account.",
         "",
@@ -83,8 +90,13 @@ export async function handleAgentRoute(
     try {
       const identity = await authenticate(req, body);
       const revoked = await revokeDbAgent(revokeMatch[1], identity.id);
-      if (!revoked) return json(res, 404, { error: "Agent not found" });
-      return json(res, 200, { revoked: true, agent_id: revokeMatch[1] });
+      if (!revoked) {
+        return json(res, 404, { error: "Agent not found" });
+      }
+      return json(res, 200, {
+        revoked: true,
+        agent_id: revokeMatch[1],
+      });
     } catch {
       return json(res, 401, { error: "Identity access key required" });
     }
