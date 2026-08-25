@@ -37,6 +37,11 @@ body {
 .dashboard-nav {
   background: rgba(15, 7, 24, 0.82);
   border-bottom-color: var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  position: relative;
 }
 
 .dashboard-brand,
@@ -272,6 +277,73 @@ body {
   color: #d89a91;
 }
 
+.dashboard-navigation {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  min-width: 0;
+}
+
+.dashboard-navigation-link,
+.dashboard-navigation-menu summary {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  list-style: none;
+}
+
+.dashboard-navigation-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.dashboard-navigation-menu {
+  position: relative;
+}
+
+.dashboard-navigation-menu summary {
+  color: var(--muted);
+  transition: color 160ms ease;
+}
+
+.dashboard-navigation-menu summary:hover,
+.dashboard-navigation-link:hover {
+  color: var(--cream-light);
+}
+
+.dashboard-navigation-dropdown {
+  position: absolute;
+  top: calc(100% + 12px);
+  left: 0;
+  min-width: 180px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  background: rgba(18, 9, 29, 0.96);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+  z-index: 20;
+}
+
+.dashboard-navigation-dropdown a,
+.dashboard-navigation-dropdown button {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  text-decoration: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.dashboard-navigation-dropdown a:hover,
+.dashboard-navigation-dropdown button:hover {
+  background: rgba(216, 204, 121, 0.08);
+  color: var(--cream-light);
+}
+
 @media (max-width: 760px) {
   .dashboard-container {
     width: min(92vw, 680px);
@@ -292,7 +364,20 @@ body {
     gap: 24px;
   }
 
-  .dashboard-nav-left {
+  .dashboard-nav {
+    align-items: flex-start;
+  }
+
+  .dashboard-navigation {
+    flex-wrap: wrap;
+    gap: 14px 18px;
+  }
+
+  .dashboard-navigation-dropdown {
+    position: fixed;
+    top: 72px;
+    left: 16px;
+    right: 16px;
     min-width: 0;
   }
 
