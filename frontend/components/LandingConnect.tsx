@@ -32,21 +32,6 @@ async function getRegisteredAgentState(accessKey: string) {
   }
 }
 
-async function createIdentitySession(address: string) {
-  const challengeResponse = await fetch(`${API_URL}/api/identity/challenge`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ owner: address }),
-  });
-
-  const challenge = await challengeResponse.json();
-  if (!challengeResponse.ok) {
-    throw new Error(challenge.error ?? "Unable to authorize AgentHub");
-  }
-
-  return challenge;
-}
-
 export function LandingConnect({ className }: { className?: string }) {
   const router = useRouter();
   const { address, isConnected } = useAccount();
@@ -59,21 +44,31 @@ export function LandingConnect({ className }: { className?: string }) {
     }
 
     const accessKey = window.localStorage.getItem(ACCESS_KEY_STORAGE);
+
     if (!accessKey) {
+      router.replace("/onboarding");
       return;
     }
 
     setChecking(true);
     void getRegisteredAgentState(accessKey).then((state) => {
       setChecking(false);
+
       if (state.authenticated && state.registered) {
         router.replace("/dashboard");
+        return;
       }
+
+      if (!state.authenticated) {
+        window.localStorage.removeItem(ACCESS_KEY_STORAGE);
+      }
+
+      router.replace("/onboarding");
     });
   }, [address, isConnected, router]);
 
-  async function handleClick() {
-    if (!isConnected || !address) {
+  function handleClick() {
+    if (!isConnected) {
       const connector = connectors[0];
       if (connector) {
         connect({ connector });
@@ -81,23 +76,25 @@ export function LandingConnect({ className }: { className?: string }) {
       return;
     }
 
-    const accessKey = window.localStorage.getItem(ACCESS_KEY_STORAGE);
+    void (async () => {
+      const accessKey = window.localStorage.getItem(ACCESS_KEY_STORAGE);
 
-    if (accessKey) {
-      const state = await getRegisteredAgentState(accessKey);
-      if (state.authenticated && state.registered) {
-        router.push("/dashboard");
-        return;
+      if (accessKey) {
+        const state = await getRegisteredAgentState(accessKey);
+        if (state.authenticated && state.registered) {
+          router.push("/dashboard");
+          return;
+        }
       }
-    }
 
-    router.push("/onboarding");
+      router.push("/onboarding");
+    })();
   }
 
   return (
     <button
       className={className}
-      onClick={() => void handleClick()}
+      onClick={handleClick}
       disabled={isPending || checking}
     >
       {isPending || checking ? "Connecting" : "Connect wallet"}
