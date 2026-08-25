@@ -8,6 +8,8 @@ import {
 } from "wagmi";
 import { agentHubChain } from "../lib/wagmi";
 
+const ACCESS_KEY_STORAGE = "agenthub_identity_access_key";
+
 function shortenAddress(address: string) {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
@@ -23,9 +25,7 @@ export function WalletButton() {
       return (
         <button
           className="wallet-button"
-          onClick={() =>
-            switchChain({ chainId: agentHubChain.id })
-          }
+          onClick={() => switchChain({ chainId: agentHubChain.id })}
         >
           Switch to Monad
         </button>
@@ -35,7 +35,10 @@ export function WalletButton() {
     return (
       <button
         className="wallet-button"
-        onClick={() => disconnect()}
+        onClick={() => {
+          window.localStorage.removeItem(ACCESS_KEY_STORAGE);
+          disconnect();
+        }}
       >
         <span className="wallet-dot" />
         {shortenAddress(address)}
