@@ -1,25 +1,49 @@
 import Link from "next/link";
+import { DashboardLink } from "../components/DashboardLink";
 import { Navbar } from "../components/Navbar";
 
 const markets = [
-  { name: "Perpetual Trading", description: "Connect an agent to a delegated trading account and execute supported Perpl markets.", status: "LIVE" },
-  { name: "Agent Execution", description: "Give an agent a connection to your account without handing over your primary wallet.", status: "LIVE" },
-  { name: "More Connections", description: "Additional trading connections will be added as they become available.", status: "BUILDING" },
+  {
+    name: "Perpetual Trading",
+    description: "Connect an agent to a delegated trading account and execute supported Perpl markets.",
+    status: "LIVE",
+  },
+  {
+    name: "Agent Execution",
+    description: "Give an agent a connection to your account without handing over your primary wallet.",
+    status: "LIVE",
+  },
+  {
+    name: "More Connections",
+    description: "Additional trading connections will be added as they become available.",
+    status: "BUILDING",
+  },
 ];
 
 export default function Home() {
   return (
     <main className="site">
       <Navbar />
+
       <section className="hero">
         <div className="hero-copy">
-          <h1>Give agents<br /><span>markets to trade.</span></h1>
-          <p>Connect your wallet, create your AgentHub identity, and give your agent a dedicated connection to trade through your delegated account.</p>
+          <h1>
+            Give agents<br />
+            <span>markets to trade.</span>
+          </h1>
+          <p>
+            Connect your wallet, create your AgentHub identity, and give your agent a dedicated connection to trade through your delegated account.
+          </p>
           <div className="hero-actions">
-            <Link href="/onboarding" className="button-primary">Launch AgentHub</Link>
-            <Link href="/onboarding" className="button-secondary">Connect an agent</Link>
+            <DashboardLink className="button-primary">
+              Launch AgentHub
+            </DashboardLink>
+            <DashboardLink className="button-secondary">
+              Connect an agent
+            </DashboardLink>
           </div>
         </div>
+
         <div className="hero-index">
           <div className="index-label">SYSTEM</div>
           <div className="index-value">AGENT / 01</div>
@@ -30,13 +54,24 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="ticker"><span>AGENTS</span><span>MARKETS</span><span>EXECUTION</span><span>ONCHAIN</span><span>DELEGATION</span></section>
+      <section className="ticker">
+        <span>AGENTS</span>
+        <span>MARKETS</span>
+        <span>EXECUTION</span>
+        <span>ONCHAIN</span>
+        <span>DELEGATION</span>
+      </section>
 
       <section id="markets" className="markets-section">
         <div className="section-heading">
-          <div><h2>Built for autonomous execution.</h2></div>
-          <p>AgentHub separates wallet ownership from agent execution. Your primary wallet stays under your control while authorized agents use delegated trading connections.</p>
+          <div>
+            <h2>Built for autonomous execution.</h2>
+          </div>
+          <p>
+            AgentHub separates wallet ownership from agent execution. Your primary wallet stays under your control while authorized agents use delegated trading connections.
+          </p>
         </div>
+
         <div className="market-grid">
           {markets.map((market, index) => (
             <article className="market-card" key={market.name}>
@@ -50,14 +85,24 @@ export default function Home() {
       </section>
 
       <section id="agents" className="agent-section">
-        <div><h2>Your agent.<br />Your authorization.</h2></div>
+        <div>
+          <h2>Your agent.<br />Your authorization.</h2>
+        </div>
         <div className="agent-copy">
-          <p>Your wallet proves ownership during onboarding. AgentHub then creates an identity and a separate connection credential for your agent.</p>
-          <Link href="/onboarding" className="text-link">Configure an agent</Link>
+          <p>
+            Your wallet proves ownership during onboarding. AgentHub then creates an identity and a separate connection credential for your agent.
+          </p>
+          <DashboardLink className="text-link">
+            Configure an agent
+          </DashboardLink>
         </div>
       </section>
 
-      <footer className="footer"><span>AGENTHUB</span><span>ONCHAIN AGENT INFRASTRUCTURE</span><span>2026</span></footer>
+      <footer className="footer">
+        <span>AGENTHUB</span>
+        <span>ONCHAIN AGENT INFRASTRUCTURE</span>
+        <span>2026</span>
+      </footer>
     </main>
   );
 }
