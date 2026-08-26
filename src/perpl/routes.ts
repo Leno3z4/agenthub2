@@ -33,9 +33,6 @@ function normalizeOrigin(value: string | undefined) {
 }
 
 function requestOrigin(req: IncomingMessage) {
-  // Perpl requires the integration Origin to be whitelisted. Prefer the
-  // explicit server-side value so an arbitrary request Origin can never be
-  // forwarded to Perpl for enrollment. FRONTEND_ORIGIN is a safe fallback.
   return (
     normalizeOrigin(process.env.PERPL_ORIGIN) ||
     normalizeOrigin(process.env.FRONTEND_ORIGIN) ||
@@ -154,7 +151,6 @@ export async function handlePerplRoute(
         walletSignature,
         privateKey: pending.privateKey,
         origin,
-        targetProfile: pending.delegatedAccount,
       });
 
       await savePerplSecret({
