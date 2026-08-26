@@ -70,11 +70,11 @@ export function getApiKeyProofDigest(payload: PerplPayloadResponse["typed_data"]
   // alongside the actual signing types.
   const { EIP712Domain: _ignored, ...types } = payload.types;
   return hashTypedData({
-    domain: payload.domain as never,
+    domain: payload.domain,
     types,
-    primaryType: payload.primaryType as never,
+    primaryType: payload.primaryType,
     message: payload.message,
-  });
+  } as any);
 }
 
 export async function enrollApiKey(params: {
