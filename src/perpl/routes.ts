@@ -27,6 +27,15 @@ function bearer(req: IncomingMessage) {
     : "";
 }
 
+function requestOrigin(req: IncomingMessage) {
+  const origin = req.headers.origin;
+  if (typeof origin === "string" && /^https?:\/\/[^\s/]+(?:\/)?$/.test(origin)) {
+    return origin.replace(/\/$/, "");
+  }
+  const configured = process.env.APP_ORIGIN?.trim().replace(/\/$/, "");
+  return configured || "";
+}
+
 async function body(req: IncomingMessage) {
   const chunks: Buffer[] = [];
   let size = 0;
@@ -62,7 +71,7 @@ export async function handlePerplRoute(
   }
 
   const identity = await authenticateIdentityAccessKey(token);
-  const origin = process.env.APP_ORIGIN;
+  const origin = requestOrigin(req);
 
   if (!origin) {
     json(res, 503, { error: "AgentHub origin is not configured" });
@@ -83,27 +92,33 @@ export async function handlePerplRoute(
       return true;
     }
 
-    const pending = await beginPerplEnrollment({
-      identityId: identity.id,
-      walletOwner,
-      delegatedAccount: identity.delegatedAccount as Address,
-      label: String(data.label ?? "AgentHub2"),
-      origin,
-    });
+    try {
+      const pending = await beginPerplEnrollment({
+        identityId: identity.id,
+        walletOwner,
+        delegatedAccount: identity.delegatedAccount as Address,
+        label: String(data.label ?? "AgentHub2"),
+        origin,
+      });
 
-    await savePendingEnrollment({
-      ...pending,
-      typedData: pending.payload.typed_data,
-      mac: pending.payload.mac,
-    });
+      await savePendingEnrollment({
+        ...pending,
+        typedData: pending.payload.typed_data,
+        mac: pending.payload.mac,
+      });
 
-    json(res, 201, {
-      enrollment_id: pending.id,
-      public_key: pending.publicKey,
-      typed_data: pending.payload.typed_data,
-      mac: pending.payload.mac,
-      expires_at: pending.expiresAt,
-    });
+      json(res, 201, {
+        enrollment_id: pending.id,
+        public_key: pending.publicKey,
+        typed_data: pending.payload.typed_data,
+        mac: pending.payload.mac,
+        expires_at: pending.expiresAt,
+      });
+    } catch (error) {
+      json(res, 502, {
+        error: error instanceof Error ? error.message : "Perpl enrollment payload request failed",
+      });
+    }
     return true;
   }
 
@@ -149,11 +164,13 @@ export async function handlePerplRoute(
         connector: "perpl",
         delegated_account: identity.delegatedAccount,
       });
-      return true;
     } catch (error) {
       await releaseClaimedEnrollment(enrollmentId, identity.id);
-      throw error;
+      json(res, 502, {
+        error: error instanceof Error ? error.message : "Perpl enrollment failed",
+      });
     }
+    return true;
   }
 
   json(res, 404, { error: "Not found" });
