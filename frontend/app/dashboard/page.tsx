@@ -4,6 +4,7 @@ import { DashboardNavigation } from "../../components/DashboardNavigation";
 import { DepositPanel } from "../../components/DepositPanel";
 import { KillSwitch } from "../../components/KillSwitch";
 import { Positions } from "../../components/Positions";
+import { PerplEnrollment } from "../../components/PerplEnrollment";
 import { DashboardGate } from "../../components/DashboardGate";
 
 export default function DashboardPage() {
@@ -29,6 +30,7 @@ export default function DashboardPage() {
 
           <AgentIdentity />
           <AgentSelector />
+          <PerplEnrollment />
 
           <section className="dashboard-grid">
             <DepositPanel />
