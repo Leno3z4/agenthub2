@@ -390,3 +390,198 @@ body {
     margin-top: 48px;
   }
 }
+
+@media (max-width: 480px) {
+  html,
+  body {
+    overflow-x: hidden;
+  }
+
+  .dashboard-nav {
+    padding: max(12px, env(safe-area-inset-top)) 14px 12px;
+  }
+
+  .dashboard-container,
+  .onboarding-page,
+  .site {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .dashboard-container {
+    padding: 54px 16px calc(72px + env(safe-area-inset-bottom));
+  }
+
+  .onboarding-page {
+    padding: 16px;
+    place-items: center;
+  }
+
+  .onboarding-card {
+    padding: 12px 0;
+  }
+
+  .dashboard-heading h1,
+  .onboarding-card h1 {
+    font-size: clamp(30px, 9vw, 42px);
+    line-height: 1.02;
+  }
+
+  .dashboard-heading p,
+  .onboarding-card p {
+    max-width: 100%;
+    line-height: 1.5;
+  }
+
+  .status-data,
+  .agent-selector-heading,
+  .agent-selector-row {
+    align-items: flex-start;
+  }
+
+  .status-data {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-navigation {
+    width: 100%;
+    gap: 10px 14px;
+  }
+
+  .dashboard-navigation-link,
+  .dashboard-navigation-menu summary {
+    font-size: 13px;
+  }
+
+  .dashboard-navigation-dropdown {
+    top: 64px;
+    left: 10px;
+    right: 10px;
+    max-height: calc(100dvh - 80px);
+    overflow-y: auto;
+  }
+
+  .dashboard-grid,
+  .dashboard-panel,
+  .dashboard-card,
+  .deposit-panel,
+  .positions-panel,
+  .risk-panel,
+  .status-panel {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .dashboard-panel,
+  .dashboard-card,
+  .deposit-panel,
+  .positions-panel,
+  .risk-panel {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .agent-selector-trigger,
+  .action-button,
+  .button-primary,
+  .button-secondary,
+  .wallet-button {
+    min-height: 46px;
+  }
+
+  .action-button,
+  .button-primary,
+  .button-secondary,
+  .wallet-button {
+    width: 100%;
+  }
+
+  .agent-selector {
+    width: 100%;
+  }
+
+  .agent-selector-trigger {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .agent-selector-menu {
+    position: fixed;
+    top: 72px;
+    left: 10px;
+    right: 10px;
+    width: auto;
+    max-height: calc(100dvh - 88px);
+    overflow-y: auto;
+    box-sizing: border-box;
+  }
+
+  .agent-selector-heading,
+  .agent-selector-row {
+    flex-wrap: wrap;
+  }
+
+  .agent-selector-row button {
+    min-height: 40px;
+  }
+
+  .onboarding-card pre,
+  .agent-prompt pre,
+  .agent-selector-prompt pre {
+    max-width: 100%;
+    box-sizing: border-box;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .kill-switch {
+    margin-top: 36px;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+@media (max-width: 360px) {
+  .dashboard-container {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .onboarding-page {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .status-data {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .dashboard-navigation {
+    gap: 8px 12px;
+  }
+
+  .dashboard-navigation-link,
+  .dashboard-navigation-menu summary {
+    font-size: 12px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  .onboarding-page {
+    min-height: auto;
+    padding-top: 20px;
+    padding-bottom: 20px;
+    align-items: start;
+  }
+
+  .onboarding-card {
+    margin: 0 auto;
+  }
+
+  .dashboard-container {
+    padding-top: 48px;
+  }
+}
