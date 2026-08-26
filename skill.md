@@ -16,6 +16,28 @@ Content-Type: application/json
 4. The response returns an agent-specific `connection_token`.
 5. Use the `connection_token` as a Bearer token for subsequent agent API calls.
 
+## Perpl connection for AgentHub users
+
+AgentHub uses the manual Perpl API-key path for users because programmatic enrollment requires a Perpl-whitelisted integration Origin.
+
+The user must create a Perpl API key in the Perpl web UI:
+
+- Mainnet: https://app.perpl.xyz/apikeys
+- Testnet: https://testnet.perpl.xyz/apikeys
+
+The key must have **read + trade** scope (`scope_mask: 3`). Perpl also provides the Ed25519 private key when the key is created. The user must provide **both** values to AgentHub:
+
+- `X-API-Key` opaque API token
+- Ed25519 private key (32-byte hex)
+
+AgentHub sends both to its backend over HTTPS. The backend verifies the credentials against Perpl using Perpl's signed REST authentication, then encrypts them server-side.
+
+Never ask the user for a wallet seed phrase or wallet private key. The Perpl Ed25519 private key is separate from the user's wallet key.
+
+Perpl API-key authentication requires both the opaque API key and Ed25519 private key. Every authenticated Perpl request is signed with a fresh timestamp, nonce, and canonical request string.
+
+The API key cannot withdraw or transfer funds out of Perpl. It can read and trade according to its scope.
+
 ## Market discovery and market conditions
 
 Market discovery is independent of the user's private Perpl trading session. **Do not call `/api/agent/perpl/state` to discover whether markets exist.**
@@ -44,16 +66,28 @@ Each market may provide:
 - `config.is_open`
 - `config.price_decimals`
 - `config.size_decimals`
+- `config.initial_margin`
+- `config.maintenance_margin`
 - `config.order_max_market_slippage_bps`
-- maker/taker fee fields when Perpl supplies them
-- `state.bid`, `state.ask`, `state.mid`, `state.mrk`, `state.orl`
+- maker/taker fee fields and fee tiers when Perpl supplies them
+- `state.bid`, `state.ask`, `state.mid`, `state.mrk`, `state.orl`, `state.lst`
+- `state.dv`, `state.dva`, `state.oi`, `state.tvl`
+- `funding.rate`, funding index/payment/sum fields
 - any additional fields returned by Perpl must be preserved and treated as live exchange metadata
 
-Also inspect `tokens[]` and `instances[]` for collateral decimals, symbols, account-opening minimums, and deposit minimums.
+Use `initial_margin` to derive the protocol's maximum leverage where appropriate: e.g. 1000 = 10% initial margin = 10x maximum leverage. Do not invent a leverage ceiling if Perpl exposes a more specific risk field.
+
+Also inspect `tokens[]` and `instances[]` for collateral decimals, symbols, account-opening minimums, deposit minimums, withdrawal minimums, maximum account equity, and trigger-order limits.
+
+For deeper market data, AgentHub should use the documented Perpl public market-data endpoints when available:
+
+GET /api/agent/perpl/markets/<market-id>/candles/<resolution>/<from>-<to>
+GET /api/agent/perpl/markets/<market-id>/funding/<from>-<to>
+GET /api/agent/perpl/markets/funding/<from>-<to>
+
+These correspond to Perpl's public OHLCV and funding endpoints and do not require the private trading session.
 
 Do not claim a market is unavailable merely because private account state is unavailable. Public market data and private account state are separate.
-
-If the user asks for volume, open interest, funding, order-book depth, recent trades, leverage limits, or another field that is not present in the returned context, do not invent it. Report that the current public context does not expose that field and use a dedicated market-data endpoint only when one is provided by AgentHub.
 
 ## Private Perpl account state
 
@@ -67,16 +101,10 @@ Possible responses include:
 - `status: stale`: refresh before trading.
 - `status: sequence_gap`: stop trading and refresh/reconnect.
 - `status: disconnected`: private state is not currently synchronized.
-- HTTP `409` with `code: perpl_enrollment_required`: the AgentHub identity has not completed Perpl API-key enrollment. This is different from market availability.
+- HTTP `409` with `code: perpl_enrollment_required`: Perpl credentials have not been connected to AgentHub yet. This is different from market availability.
 - HTTP `409` with `code: perpl_state_unavailable`: the private Perpl session failed to initialize or synchronize. Do not assume the market is unavailable.
 
 The web application's `/api/account/state` endpoint is for the AgentHub UI and is not the normal agent endpoint.
-
-## Perpl enrollment requirement
-
-AgentHub's Perpl trading session requires Perpl trade credentials to be enrolled for the identity. Enrollment uses a one-time wallet authorization flow and is separate from creating the AgentHub agent connection. An agent must not attempt to fabricate or bypass that wallet authorization.
-
-If `/api/agent/perpl/state` returns `perpl_enrollment_required`, tell the user that Perpl enrollment must be completed in AgentHub before private account state and trading can work. Continue to use the public market endpoints for market discovery when appropriate.
 
 ## Trading
 
@@ -100,7 +128,7 @@ Before placing an order:
 4. Use its numeric `id` as `mkt`.
 5. Fetch `/api/agent/perpl/state` and confirm private state is connected and fresh.
 6. Check balance, open orders, and positions.
-7. Respect market decimals, slippage limits, fees, and any live risk metadata returned by Perpl.
+7. Respect market decimals, margin/leverage constraints, slippage limits, fees, funding, and any live risk metadata returned by Perpl.
 
 ## Cancel an order
 
@@ -146,6 +174,8 @@ Use `{ "enabled": true }` to activate the emergency action. It cancels active or
 ## Security
 
 Never reveal identity access credentials or connection tokens. Never put credentials in logs, source control, analytics, or user-visible output. Send connection tokens only to the AgentHub backend.
+
+Never ask for or accept a wallet seed phrase/private key. Perpl API credentials are distinct and must only be sent over HTTPS to AgentHub's backend.
 
 The user's primary wallet remains the owner. AgentHub uses a delegated account for agent execution.
 
