@@ -5,7 +5,13 @@ const sessions = new Map<string, PerplTradingWs>();
 
 export async function getPerplSession(identityId: string): Promise<PerplTradingWs> {
   const existing = sessions.get(identityId);
-  if (existing) return existing;
+  if (existing?.isOpen()) return existing;
+
+  if (existing) {
+    existing.close();
+    sessions.delete(identityId);
+  }
+
   const credentials: PerplTradingCredentials = await loadPerplCredentials(identityId);
   const session = new PerplTradingWs(credentials);
   await session.connect();
