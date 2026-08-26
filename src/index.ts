@@ -8,24 +8,15 @@ import { handlePerplAccountRoute } from "./perpl/account-route.js";
 import { handlePerplOrderRoute } from "./perpl/order-route.js";
 import { handlePerplCancelRoute } from "./perpl/cancel-route.js";
 import { handlePerplStateRoute } from "./perpl/state-route.js";
+import { handlePerplMarketRoute } from "./perpl/market-route.js";
 import { handlePerplKillSwitchRoute } from "./perpl/kill-switch-route.js";
 import { checkDelegatedAccount } from "./frontend/delegated-account.js";
 import { monad } from "./config.js";
 import { handleAgentRoute } from "./agent/routes.js";
 import { handleSkillRoute } from "./agent/skill-route.js";
 import { handleAccountDataRoute } from "./agent/account-data-route.js";
-import {
-  consumeIdentityChallenge,
-  getOrCreateIdentity,
-  issueIdentityChallenge,
-  createAgent,
-} from "./agent/identity.js";
-import {
-  authenticateIdentityAccessKey,
-  issueAgentCredential,
-  issueIdentityAccessKey,
-  revokeIdentityAccessKey,
-} from "./agent/auth.js";
+import { consumeIdentityChallenge, getOrCreateIdentity, issueIdentityChallenge, createAgent } from "./agent/identity.js";
+import { authenticateIdentityAccessKey, issueAgentCredential, issueIdentityAccessKey, revokeIdentityAccessKey } from "./agent/auth.js";
 import { clientIp, rateLimit } from "./security/rate-limit.js";
 
 const port = Number(process.env.PORT ?? 10000);
@@ -33,48 +24,27 @@ const publicClient = createPublicClient({ chain: monad, transport: http() });
 
 function cors(req: any, res: any): boolean {
   const origin = req.headers.origin;
-  const allowedOrigins = new Set(
-    [process.env.FRONTEND_ORIGIN, "https://agenthub2-gray.vercel.app"].filter(
-      Boolean,
-    ),
-  );
-
+  const allowedOrigins = new Set([process.env.FRONTEND_ORIGIN, "https://agenthub2-gray.vercel.app"].filter(Boolean));
   if (typeof origin === "string" && allowedOrigins.has(origin)) {
     res.setHeader("access-control-allow-origin", origin);
     res.setHeader("vary", "Origin");
     res.setHeader("access-control-allow-methods", "GET,POST,OPTIONS");
-    res.setHeader(
-      "access-control-allow-headers",
-      "Content-Type, Authorization",
-    );
+    res.setHeader("access-control-allow-headers", "Content-Type, Authorization");
   }
-
-  if (req.method === "OPTIONS") {
-    res.writeHead(204);
-    res.end();
-    return true;
-  }
-
+  if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return true; }
   return false;
 }
 
 function json(res: any, status: number, body: unknown, retryAfterMs = 0) {
-  const headers: Record<string, string> = {
-    "content-type": "application/json",
-    "cache-control": "no-store",
-  };
-  if (retryAfterMs > 0) {
-    headers["retry-after"] = String(Math.ceil(retryAfterMs / 1000));
-  }
-  res.writeHead(status, headers);
-  res.end(JSON.stringify(body));
+  const headers: Record<string, string> = { "content-type": "application/json", "cache-control": "no-store" };
+  if (retryAfterMs > 0) headers["retry-after"] = String(Math.ceil(retryAfterMs / 1000));
+  res.writeHead(status, headers); res.end(JSON.stringify(body));
 }
 
 function limited(req: any, res: any, scope: string, max: number, windowMs: number): boolean {
   const result = rateLimit(`${scope}:${clientIp(req.headers)}`, max, windowMs);
   if (result.allowed) return false;
-  json(res, 429, { error: "Too many requests" }, result.retryAfterMs);
-  return true;
+  json(res, 429, { error: "Too many requests" }, result.retryAfterMs); return true;
 }
 
 async function body(req: any): Promise<Record<string, unknown>> {
@@ -84,17 +54,13 @@ async function body(req: any): Promise<Record<string, unknown>> {
   if (raw.length > 16_384) throw new Error("Request body too large");
   if (!raw.length) return {};
   const parsed = JSON.parse(raw.toString("utf8"));
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error("Invalid JSON body");
-  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("Invalid JSON body");
   return parsed as Record<string, unknown>;
 }
 
 function bearer(req: any): string | undefined {
   const value = req.headers.authorization;
-  return typeof value === "string" && value.startsWith("Bearer ")
-    ? value.slice(7).trim() || undefined
-    : undefined;
+  return typeof value === "string" && value.startsWith("Bearer ") ? value.slice(7).trim() || undefined : undefined;
 }
 
 const server = createServer(async (req, res) => {
@@ -103,69 +69,55 @@ const server = createServer(async (req, res) => {
     if (await handleSkillRoute(req, res)) return;
     if (await handlePerplRoute(req, res)) return;
     if (req.method === "GET" && req.url === "/health") return json(res, 200, { ok: true });
-    if (req.url?.startsWith("/api/agents")) {
-      if (await handleAgentRoute(req, res, await body(req))) return;
-    }
+    if (req.url?.startsWith("/api/agents")) { if (await handleAgentRoute(req, res, await body(req))) return; }
     if (await handleAccountDataRoute(req, res, publicClient)) return;
+    if (await handlePerplMarketRoute(req, res)) return;
     if (await handlePerplAccountRoute(req, res, publicClient)) return;
     if (await handlePerplStateRoute(req, res)) return;
     if (req.method === "POST" && req.url === "/api/agent/perpl/order") {
-      const data = await body(req);
-      if (await handlePerplOrderRoute(req, res, publicClient, data)) return;
+      const data = await body(req); if (await handlePerplOrderRoute(req, res, publicClient, data)) return;
     }
     if (req.method === "POST" && req.url === "/api/agent/perpl/order/cancel") {
-      const data = await body(req);
-      if (await handlePerplCancelRoute(req, res, publicClient, data)) return;
+      const data = await body(req); if (await handlePerplCancelRoute(req, res, publicClient, data)) return;
     }
     if (req.method === "GET" && req.url === "/api/perpl/context") {
-      try { return json(res, 200, await getPerplContext()); }
-      catch { return json(res, 502, { error: "Perpl unavailable" }); }
+      try { return json(res, 200, await getPerplContext()); } catch { return json(res, 502, { error: "Perpl unavailable" }); }
     }
     if (req.method === "POST" && req.url === "/api/identity/challenge") {
       if (limited(req, res, "identity-challenge", 5, 60_000)) return;
-      const data = await body(req);
-      const owner = String(data.owner ?? "") as Address;
+      const data = await body(req); const owner = String(data.owner ?? "") as Address;
       if (!/^0x[a-fA-F0-9]{40}$/.test(owner)) return json(res, 400, { error: "Invalid owner address" });
       return json(res, 200, await issueIdentityChallenge(owner, await publicClient.getChainId()));
     }
     if (req.method === "POST" && req.url === "/api/identity/access-key") {
       if (limited(req, res, "identity-access", 3, 60_000)) return;
-      const data = await body(req);
-      const owner = String(data.owner ?? "") as Address;
-      const message = String(data.message ?? "");
-      const signature = String(data.signature ?? "") as Hex;
+      const data = await body(req); const owner = String(data.owner ?? "") as Address; const message = String(data.message ?? ""); const signature = String(data.signature ?? "") as Hex;
       if (!/^0x[a-fA-F0-9]{40}$/.test(owner) || !/^0x[a-fA-F0-9]+$/.test(signature)) return json(res, 400, { error: "Invalid identity authorization request" });
       const delegated = await checkDelegatedAccount(owner, publicClient);
       if (!delegated.exists) return json(res, 409, { error: "Delegated account does not exist" });
       if (!await consumeIdentityChallenge({ owner, message, signature })) return json(res, 401, { error: "Invalid or expired identity authorization" });
-      const identity = await getOrCreateIdentity(owner, delegated.address);
-      const accessKey = await issueIdentityAccessKey(identity);
+      const identity = await getOrCreateIdentity(owner, delegated.address); const accessKey = await issueIdentityAccessKey(identity);
       return json(res, 201, { identity_id: identity.id, owner: identity.owner, delegated_account: identity.delegatedAccount, access_key: accessKey.token, access_key_id: accessKey.id, expires_at: accessKey.expiresAt });
     }
     if (req.method === "POST" && req.url === "/api/agent/connect") {
       if (limited(req, res, "agent-connect", 10, 60_000)) return;
-      const data = await body(req);
-      const accessToken = String(data.identity_access_key ?? data.connection_token ?? bearer(req) ?? "");
+      const data = await body(req); const accessToken = String(data.identity_access_key ?? data.connection_token ?? bearer(req) ?? "");
       if (!accessToken) return json(res, 401, { error: "Identity access key required" });
-      const identity = await authenticateIdentityAccessKey(accessToken);
-      const agent = await createAgent(identity.id, String(data.agent_name ?? "Agent"));
+      const identity = await authenticateIdentityAccessKey(accessToken); const agent = await createAgent(identity.id, String(data.agent_name ?? "Agent"));
       const credential = await issueAgentCredential({ agentId: agent.id, identityId: identity.id });
       return json(res, 201, { identity_id: identity.id, agent_id: agent.id, connection_token: credential.token, expires_at: credential.expiresAt, scopes: credential.scopes });
     }
     if (req.method === "POST" && req.url === "/api/identity/access-key/revoke") {
       if (limited(req, res, "identity-revoke", 5, 60_000)) return;
-      const data = await body(req);
-      const accessToken = String(data.identity_access_key ?? bearer(req) ?? "");
+      const data = await body(req); const accessToken = String(data.identity_access_key ?? bearer(req) ?? "");
       if (!accessToken) return json(res, 401, { error: "Identity access key required" });
-      const identity = await authenticateIdentityAccessKey(accessToken);
-      const id = String(data.access_key_id ?? "");
+      const identity = await authenticateIdentityAccessKey(accessToken); const id = String(data.access_key_id ?? "");
       if (!id || !await revokeIdentityAccessKey(id, identity.id)) return json(res, 404, { error: "Access key not found" });
       return json(res, 200, { revoked: true, identity_id: identity.id });
     }
     const delegatedMatch = req.url?.match(/^\/api\/agent\/delegated-account\/(0x[a-fA-F0-9]{40})$/);
     if (req.method === "GET" && delegatedMatch) {
-      try { return json(res, 200, await checkDelegatedAccount(delegatedMatch[1] as Address, publicClient)); }
-      catch { return json(res, 502, { error: "Unable to check delegated account" }); }
+      try { return json(res, 200, await checkDelegatedAccount(delegatedMatch[1] as Address, publicClient)); } catch { return json(res, 502, { error: "Unable to check delegated account" }); }
     }
     return json(res, 404, { error: "Not found" });
   } catch {
@@ -175,7 +127,4 @@ const server = createServer(async (req, res) => {
 });
 
 server.listen(port, "0.0.0.0", () => console.log(`agenthub2 listening on ${port}`));
-
-verifyPerplDeployment()
-  .then((deployment) => console.log(JSON.stringify({ deployment })))
-  .catch(() => console.error("Perpl deployment check failed"));
+verifyPerplDeployment().then((deployment) => console.log(JSON.stringify({ deployment }))).catch(() => console.error("Perpl deployment check failed"));
