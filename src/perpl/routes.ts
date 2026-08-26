@@ -10,6 +10,7 @@ import {
   savePerplSecret,
 } from "./enrollment-store.js";
 import { enrollApiKey } from "./enrollment.js";
+import { normalizePerplPrivateKey, verifyPerplApiKey, isApiKeyLike } from "./api-key-auth.js";
 import { rateLimit, clientIp } from "../security/rate-limit.js";
 
 function json(res: ServerResponse, status: number, body: unknown) {
@@ -60,9 +61,9 @@ export async function handlePerplRoute(
   req: IncomingMessage,
   res: ServerResponse,
 ): Promise<boolean> {
-  if (!req.url || !req.method || !req.url.startsWith("/api/perpl/enroll/")) return false;
+  if (!req.url || !req.method || !req.url.startsWith("/api/perpl/")) return false;
 
-  const limit = rateLimit(`perpl-enroll:${clientIp(req.headers)}`, 8, 60_000);
+  const limit = rateLimit(`perpl:${clientIp(req.headers)}`, 12, 60_000);
   if (!limit.allowed) {
     res.setHeader("retry-after", String(Math.ceil(limit.retryAfterMs / 1000)));
     json(res, 429, { error: "Too many requests" });
@@ -76,6 +77,36 @@ export async function handlePerplRoute(
   }
 
   const identity = await authenticateIdentityAccessKey(token);
+
+  // Path 2: users create the Perpl API key themselves in Perpl's web UI and
+  // provide both the opaque X-API-Key token and the Ed25519 private key to
+  // AgentHub. Perpl's authentication docs require both for signed requests.
+  if (req.method === "POST" && req.url === "/api/perpl/connect") {
+    const data = await body(req);
+    const apiKey = String(data.api_key ?? "").trim();
+    const privateKeyRaw = String(data.private_key ?? "").trim();
+
+    if (!isApiKeyLike(apiKey)) {
+      json(res, 400, { error: "Enter the Perpl API key from the Perpl API keys page" });
+      return true;
+    }
+
+    try {
+      const privateKey = normalizePerplPrivateKey(privateKeyRaw);
+      await verifyPerplApiKey(privateKey, apiKey);
+      await savePerplSecret({ identityId: identity.id, apiKey, privateKey });
+      json(res, 200, { ok: true });
+    } catch (error) {
+      json(res, 400, {
+        error: error instanceof Error ? error.message : "Perpl API key verification failed",
+      });
+    }
+    return true;
+  }
+
+  // Legacy programmatic enrollment path. Keep it available, but it is not the
+  // default user flow because Perpl requires a whitelisted integration Origin.
+  if (!req.url.startsWith("/api/perpl/enroll/")) return false;
   const origin = requestOrigin(req);
 
   if (!origin) {
