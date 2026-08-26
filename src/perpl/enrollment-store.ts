@@ -38,7 +38,7 @@ export async function savePerplSecret(input: { identityId: string; connectionId?
     await client.query("BEGIN");
     await client.query("DELETE FROM connector_secrets WHERE identity_id = $1 AND connector = 'perpl' AND secret_type IN ('api_key','private_key') AND revoked_at IS NULL", [input.identityId]);
     await client.query("INSERT INTO connector_secrets (id, identity_id, connection_id, connector, secret_type, ciphertext, iv, auth_tag, expires_at) VALUES ($1,$2,$3,'perpl','api_key',$4,$5,$6,to_timestamp($7 / 1000.0))", [`sec_${randomBytes(16).toString("hex")}`, input.identityId, input.connectionId ?? null, api.ciphertext, api.iv, api.authTag, input.expiresAt ?? null]);
-    await client.query("INSERT INTO connector_secrets (id, identity_id, connection_id, connector, secret_type, ciphertext, iv, auth_tag, expires_at) VALUES ($1,$2,$3,'perpl','private_key',$4,$5,$6,to_timestamp($7 / 1000.0))", [`sec_${randomBytes(16).toString("hex")}`, input.identityId, input.connectionId ?? null, key.ciphertext, key.iv, key.authTag, input.expiresAt ?? null]);
+    await client.query("INSERT INTO connector_secrets (id, identity_id, connection_id, connector, secret_type, ciphertext, iv, auth_tag, expires_at) VALUES ($1,$2,$3,'perpl','private_key',$4,$5,$6,to_timestamp($7 / 1000.0))", [`sec_${randomBytes(16).toString("hex")}`, input.identityId, input.connectionId ?? null, api.ciphertext, key.iv, key.authTag, input.expiresAt ?? null]);
     await client.query("COMMIT");
   } catch (error) { await client.query("ROLLBACK"); throw error; } finally { client.release(); }
 }
