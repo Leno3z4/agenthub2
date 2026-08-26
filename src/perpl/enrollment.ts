@@ -34,6 +34,7 @@ export async function requestEnrollmentPayload(params: {
   publicKey: Hex;
   label: string;
   scopeMask?: 1 | 2 | 3;
+  targetProfile?: Address;
   origin: string;
 }): Promise<PerplPayloadResponse> {
   const response = await fetch(`${API_URL}/v1/api-key/payload`, {
@@ -48,6 +49,7 @@ export async function requestEnrollmentPayload(params: {
       public_key: params.publicKey,
       scope_mask: params.scopeMask ?? 3,
       label: params.label,
+      ...(params.targetProfile ? { target_profile: params.targetProfile } : {}),
     }),
   });
 
