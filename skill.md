@@ -6,68 +6,77 @@ AgentHub lets an authorized agent operate through a delegated trading account ow
 
 1. Read this skill before making AgentHub API calls.
 2. The user supplies an identity access credential in the connection prompt. Treat it as a secret. Never log it, expose it, or store it in plaintext after it has been exchanged.
-3. Create an agent connection by calling:
+3. Create an agent connection:
 
 POST /api/agent/connect
 Content-Type: application/json
 
-{
-  "identity_access_key": "<credential>",
-  "agent_name": "<agent name>"
-}
+{"identity_access_key":"<credential>","agent_name":"<agent name>"}
 
 4. The response returns an agent-specific `connection_token`.
-5. Use the `connection_token` as a Bearer token for all subsequent agent API calls. Do not use the identity credential for normal trading calls.
+5. Use the `connection_token` as a Bearer token for subsequent agent API calls.
 
-## Before trading: discover markets
+## Market discovery and market conditions
 
-Never guess market identifiers. Fetch the current public Perpl context first:
+Market discovery is independent of the user's private Perpl trading session. **Do not call `/api/agent/perpl/state` to discover whether markets exist.**
+
+For all available Perpl markets use:
+
+GET /api/agent/perpl/markets
+Authorization: Bearer <connection_token>
+
+This returns the live public Perpl context, including all current markets, instances, collateral tokens, and chain metadata.
+
+For one market, use either its numeric market ID or symbol:
+
+GET /api/agent/perpl/markets/<market-id-or-symbol>
+Authorization: Bearer <connection_token>
+
+The public unauthenticated equivalent is also available:
 
 GET /api/perpl/context
 
-This endpoint does not require a token. It returns the current chain, instances, collateral tokens, and markets.
+Never invent market identifiers. Find the market in the returned `markets[]` array.
 
-Use `markets[]` from the response to choose a market. Each market includes:
-- `id`: numeric market identifier used as `mkt` in order requests
-- `instance_id`
-- `perpetual_id`
-- `symbol` and `name`
-- `config.is_open`: whether the market is currently open
+Each market may provide:
+- `id`, `instance_id`, `perpetual_id`
+- `symbol`, `name`
+- `config.is_open`
 - `config.price_decimals`
 - `config.size_decimals`
 - `config.order_max_market_slippage_bps`
-- optional `maker_fee` and `taker_fee`
-- `state.bid`, `state.ask`, `state.mid`, `state.mrk`, and `state.orl`
+- maker/taker fee fields when Perpl supplies them
+- `state.bid`, `state.ask`, `state.mid`, `state.mrk`, `state.orl`
+- any additional fields returned by Perpl must be preserved and treated as live exchange metadata
 
-Also inspect `tokens[]` for collateral/token metadata such as `symbol` and `decimals`, and `instances[]` for instance-level minimum deposit/account-opening information.
+Also inspect `tokens[]` and `instances[]` for collateral decimals, symbols, account-opening minimums, and deposit minimums.
 
-When a market lookup is needed for a specific numeric ID, the backend also has a market lookup helper that resolves the ID against the current Perpl context. Prefer current context data over cached or remembered market IDs.
+Do not claim a market is unavailable merely because private account state is unavailable. Public market data and private account state are separate.
 
-Before placing an order:
-1. Fetch `/api/perpl/context`.
-2. Find the desired market by symbol/name.
-3. Confirm `config.is_open` is true.
-4. Use the returned `id` as `mkt`.
-5. Respect `size_decimals`, `price_decimals`, and `order_max_market_slippage_bps` when constructing the order.
-6. Never invent a market ID, symbol, price, or decimals value.
+If the user asks for volume, open interest, funding, order-book depth, recent trades, leverage limits, or another field that is not present in the returned context, do not invent it. Report that the current public context does not expose that field and use a dedicated market-data endpoint only when one is provided by AgentHub.
 
-## Agent status and account state
+## Private Perpl account state
 
 GET /api/agent/perpl/state
 Authorization: Bearer <connection_token>
 
-Returns the delegated account, connection identity, account state, open orders, positions, and whether trading is currently available.
+This returns the delegated account, account state, open orders, positions, sequence/head information, and trading availability.
 
-Treat `stale: true`, `sequenceGap: true`, or missing account state as a reason to stop normal trading and refresh state before acting.
+Possible responses include:
+- `status: connected`: private state is usable.
+- `status: stale`: refresh before trading.
+- `status: sequence_gap`: stop trading and refresh/reconnect.
+- `status: disconnected`: private state is not currently synchronized.
+- HTTP `409` with `code: perpl_enrollment_required`: the AgentHub identity has not completed Perpl API-key enrollment. This is different from market availability.
+- HTTP `409` with `code: perpl_state_unavailable`: the private Perpl session failed to initialize or synchronize. Do not assume the market is unavailable.
 
-## Account data for AgentHub UI
+The web application's `/api/account/state` endpoint is for the AgentHub UI and is not the normal agent endpoint.
 
-GET /api/account/state
-Authorization: Bearer <identity_access_key>
+## Perpl enrollment requirement
 
-This is for the AgentHub web application, not normal agent trading. It returns the authenticated identity, delegated account, Perpl account data, orders, positions, and live state.
+AgentHub's Perpl trading session requires Perpl trade credentials to be enrolled for the identity. Enrollment uses a one-time wallet authorization flow and is separate from creating the AgentHub agent connection. An agent must not attempt to fabricate or bypass that wallet authorization.
 
-Agents should normally use their `connection_token` with `/api/agent/perpl/state` rather than using the user's identity credential.
+If `/api/agent/perpl/state` returns `perpl_enrollment_required`, tell the user that Perpl enrollment must be completed in AgentHub before private account state and trading can work. Continue to use the public market endpoints for market discovery when appropriate.
 
 ## Trading
 
@@ -76,17 +85,22 @@ Authorization: Bearer <connection_token>
 Content-Type: application/json
 
 Required fields:
-- `mkt`: numeric market identifier discovered from `/api/perpl/context`
-- `t`: numeric order type in the supported range 1 through 7
+- `mkt`: numeric market identifier from live market discovery
+- `t`: supported order type 1 through 7
 - `s`: positive order size
 - `lv`: positive leverage
-- `fl`: order flags; supported values are 0, 1, 2, or 4
+- `fl`: supported order flags 0, 1, 2, or 4
 
-Optional fields include `p`, `a`, `ms`, `tif`, `tp`, `tpc`, `tr`, `lp`, and `bf` according to the connector's order format.
+Optional fields may include `p`, `a`, `ms`, `tif`, `tp`, `tpc`, `tr`, `lp`, and `bf` according to the connector's order format.
 
-The backend validates the market, order type, size, leverage, flags, current Perpl account state, and required trading capability before submission.
-
-Do not place orders when the market is closed or the Perpl state is stale/unhealthy.
+Before placing an order:
+1. Fetch `/api/agent/perpl/markets`.
+2. Find the requested market by symbol/name.
+3. Confirm `config.is_open` is true.
+4. Use its numeric `id` as `mkt`.
+5. Fetch `/api/agent/perpl/state` and confirm private state is connected and fresh.
+6. Check balance, open orders, and positions.
+7. Respect market decimals, slippage limits, fees, and any live risk metadata returned by Perpl.
 
 ## Cancel an order
 
@@ -94,10 +108,7 @@ POST /api/agent/perpl/order/cancel
 Authorization: Bearer <connection_token>
 Content-Type: application/json
 
-Required fields:
-- `mkt`: market identifier
-- `oid`: order ID
-- `lb`: last execution block from the latest state
+Required fields: `mkt`, `oid`, and the latest `lb` from private state.
 
 ## Modify an order
 
@@ -105,56 +116,39 @@ POST /api/agent/perpl/order/modify
 Authorization: Bearer <connection_token>
 Content-Type: application/json
 
-Required fields:
-- `mkt`: market identifier
-- `oid`: order ID
-- `s`: positive size
-- `lv`: positive leverage
-- `fl`: supported order flags
-- `lb`: last execution block from the latest state
+Required fields: `mkt`, `oid`, `s`, `lv`, `fl`, and the latest `lb` from private state. Optional fields may include `p` and `tif`.
 
-Optional fields may include `p` and `tif`.
+## Verify execution
 
-## Read state after execution
-
-After placing, modifying, or cancelling an order, fetch:
-
-GET /api/agent/perpl/state
-Authorization: Bearer <connection_token>
-
-Use the returned orders and positions to verify the actual account state instead of assuming the request was filled.
+After every order, cancel, or modification, fetch `/api/agent/perpl/state` again. Never assume an order filled because the HTTP request succeeded.
 
 ## Emergency close
-
-The emergency close endpoint is designed to close ongoing trading activity. It does not permanently disable the user's AgentHub account or remove the agent connection.
 
 POST /api/agent/perpl/kill-switch
 Authorization: Bearer <connection_token>
 Content-Type: application/json
 
-Use `{ "enabled": true }` to activate it. The endpoint cancels active orders and closes active positions, then verifies that the account is flat. It requires `trade:write` and `position:close` capabilities.
+Use `{ "enabled": true }` to activate the emergency action. It cancels active orders and closes active positions, then verifies the account is flat. It requires `trade:write` and `position:close`.
 
-The kill switch may be disabled later with `{ "enabled": false }`; disabling it does not remove the agent connection.
+## Operating rules
 
-## General operating rules
-
-- Start every trading task by reading `/api/perpl/context` and `/api/agent/perpl/state`.
-- Use market metadata from `/api/perpl/context` instead of hardcoded market assumptions.
-- Check that the target market is open before trading.
-- Check current positions and open orders before changing or closing them.
-- After every state-changing request, read `/api/agent/perpl/state` again to verify the result.
-- Use the latest `lb` value returned by state for cancel/modify requests.
-- Never assume a requested order filled just because the HTTP request succeeded; verify the resulting position/order state.
-- Respect the account's available balance, locked balance, and current positions.
-- Stop and ask for clarification if the user has not specified the market, side, size, leverage, or other required order parameters.
-- Do not use the identity access credential for normal trading calls.
+- Read this skill before operating.
+- Use live market discovery instead of hardcoded market IDs or prices.
+- Public market discovery does not depend on private Perpl state.
+- Never report all markets as unavailable because the private account session is unavailable.
+- Do not trade a closed market.
+- Do not trade when private state is stale or has a sequence gap.
+- Use the latest `lb` for cancel/modify.
+- Verify every state-changing operation through fresh private state.
+- Respect available and locked balance and current positions.
+- If the user has not specified the market, side, size, leverage, or other required parameters, ask for the missing information.
 
 ## Security
 
-Never reveal identity access credentials or connection tokens to the user unless the AgentHub application explicitly instructs you to do so. Never place credentials in logs, source control, analytics, or tool output. Treat connection tokens as secrets and only send them to the AgentHub backend.
+Never reveal identity access credentials or connection tokens. Never put credentials in logs, source control, analytics, or user-visible output. Send connection tokens only to the AgentHub backend.
 
 The user's primary wallet remains the owner. AgentHub uses a delegated account for agent execution.
 
 ## API base URL
 
-Use the AgentHub backend URL supplied with the connection prompt. API paths in this skill are relative to that backend URL.
+Use the AgentHub backend URL supplied with the connection prompt. All relative paths above use that backend URL.
