@@ -27,13 +27,21 @@ function bearer(req: IncomingMessage) {
     : "";
 }
 
+function normalizeOrigin(value: string | undefined) {
+  const origin = value?.trim().replace(/\/$/, "");
+  return origin && /^https?:\/\/[^\s/]+$/.test(origin) ? origin : "";
+}
+
 function requestOrigin(req: IncomingMessage) {
-  const origin = req.headers.origin;
-  if (typeof origin === "string" && /^https?:\/\/[^\s/]+(?:\/)?$/.test(origin)) {
-    return origin.replace(/\/$/, "");
-  }
-  const configured = process.env.APP_ORIGIN?.trim().replace(/\/$/, "");
-  return configured || "";
+  // Perpl requires the integration Origin to be whitelisted. Prefer the
+  // explicit server-side value so an arbitrary request Origin can never be
+  // forwarded to Perpl for enrollment. FRONTEND_ORIGIN is a safe fallback.
+  return (
+    normalizeOrigin(process.env.PERPL_ORIGIN) ||
+    normalizeOrigin(process.env.FRONTEND_ORIGIN) ||
+    normalizeOrigin(process.env.APP_ORIGIN) ||
+    normalizeOrigin(typeof req.headers.origin === "string" ? req.headers.origin : undefined)
+  );
 }
 
 async function body(req: IncomingMessage) {
@@ -74,7 +82,7 @@ export async function handlePerplRoute(
   const origin = requestOrigin(req);
 
   if (!origin) {
-    json(res, 503, { error: "AgentHub origin is not configured" });
+    json(res, 503, { error: "Perpl integration origin is not configured" });
     return true;
   }
 
