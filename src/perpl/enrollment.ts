@@ -34,12 +34,8 @@ export async function requestEnrollmentPayload(params: {
   publicKey: Hex;
   label: string;
   scopeMask?: 1 | 2 | 3;
-  targetProfile?: Address;
   origin: string;
 }): Promise<PerplPayloadResponse> {
-  // target_profile must be included in the payload request for delegated
-  // accounts. Perpl freezes the target profile into the EIP-712 payload, so
-  // omitting it here makes the wallet sign the wrong enrollment.
   const response = await fetch(`${API_URL}/v1/api-key/payload`, {
     method: "POST",
     headers: {
@@ -52,7 +48,6 @@ export async function requestEnrollmentPayload(params: {
       public_key: params.publicKey,
       scope_mask: params.scopeMask ?? 3,
       label: params.label,
-      ...(params.targetProfile ? { target_profile: params.targetProfile } : {}),
     }),
   });
 
@@ -65,9 +60,6 @@ export async function requestEnrollmentPayload(params: {
 }
 
 export function getApiKeyProofDigest(payload: PerplPayloadResponse["typed_data"]): Hex {
-  // EIP-712 domain metadata is implicit in hashTypedData and must not be
-  // included as a user-defined type. Perpl's payload can contain EIP712Domain
-  // alongside the actual signing types.
   const { EIP712Domain: _ignored, ...types } = payload.types;
   return hashTypedData({
     domain: payload.domain,
@@ -83,7 +75,6 @@ export async function enrollApiKey(params: {
   walletSignature: Hex;
   privateKey: Uint8Array;
   origin: string;
-  targetProfile?: Address;
 }): Promise<{ api_key: string }> {
   const digest = getApiKeyProofDigest(params.payload.typed_data);
   const pop = await ed.signAsync(Buffer.from(digest.slice(2), "hex"), params.privateKey);
@@ -101,7 +92,6 @@ export async function enrollApiKey(params: {
       mac: params.payload.mac,
       signature: params.walletSignature,
       pop_signature: `0x${Buffer.from(pop).toString("hex")}`,
-      ...(params.targetProfile ? { target_profile: params.targetProfile } : {}),
     }),
   });
 
