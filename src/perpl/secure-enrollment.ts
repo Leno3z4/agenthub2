@@ -31,6 +31,7 @@ export async function beginPerplEnrollment(params: {
     publicKey,
     label: params.label.slice(0, 64),
     origin: params.origin,
+    targetProfile: params.delegatedAccount,
   });
   return {
     id: `pen_${randomBytes(16).toString("hex")}`,
