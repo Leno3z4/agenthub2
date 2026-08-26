@@ -31,7 +31,6 @@ export async function beginPerplEnrollment(params: {
     publicKey,
     label: params.label.slice(0, 64),
     origin: params.origin,
-    targetProfile: params.delegatedAccount,
   });
   return {
     id: `pen_${randomBytes(16).toString("hex")}`,
@@ -59,7 +58,6 @@ export async function finishPerplEnrollment(params: {
     walletSignature: params.walletSignature,
     privateKey: params.pending.privateKey,
     origin: params.origin,
-    targetProfile: params.pending.delegatedAccount,
   });
   return { apiKey: apiKey.api_key, encryptedPrivateKey: encryptSecret(Buffer.from(params.pending.privateKey).toString("base64url")), publicKey: params.pending.publicKey };
 }
