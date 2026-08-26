@@ -1,78 +1,59 @@
 "use client";
 
 import { useState } from "react";
-import { useAccount, useSignTypedData } from "wagmi";
+import { useAccount } from "wagmi";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://agenthub2.onrender.com";
 const ACCESS_KEY_STORAGE = "agenthub_identity_access_key";
-
-type TypedDataPayload = {
-  domain: Record<string, unknown>;
-  types: Record<string, Array<{ name: string; type: string }>>;
-  primaryType: string;
-  message: Record<string, unknown>;
-};
+const PERPL_API_KEYS_URL = "https://app.perpl.xyz/apikeys";
 
 export function PerplEnrollment() {
-  const { address, isConnected } = useAccount();
-  const { signTypedDataAsync } = useSignTypedData();
+  const { isConnected } = useAccount();
+  const [apiKey, setApiKey] = useState("");
+  const [privateKey, setPrivateKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState("");
 
-  async function readJson(response: Response) {
-    const text = await response.text();
-    try {
-      return text ? JSON.parse(text) as Record<string, unknown> : {};
-    } catch {
-      return { error: text || `Request failed (${response.status})` };
-    }
-  }
-
-  async function enroll() {
+  async function connectPerpl() {
     const accessKey = window.localStorage.getItem(ACCESS_KEY_STORAGE);
-    if (!isConnected || !address) {
-      setError("Connect the wallet that owns this AgentHub account first.");
+    if (!isConnected) {
+      setError("Connect your AgentHub wallet first.");
       return;
     }
     if (!accessKey) {
       setError("Your AgentHub identity is not authorized. Return to onboarding first.");
       return;
     }
+    if (!apiKey.trim() || !privateKey.trim()) {
+      setError("Paste both the Perpl API key and private key from the Perpl API keys page.");
+      return;
+    }
 
     setBusy(true);
     setError("");
     try {
-      const startResponse = await fetch(`${API_URL}/api/perpl/enroll/start`, {
+      const response = await fetch(`${API_URL}/api/perpl/connect`, {
         method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${accessKey}` },
-        body: JSON.stringify({ label: "AgentHub", wallet_address: address }),
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${accessKey}`,
+        },
+        body: JSON.stringify({ api_key: apiKey.trim(), private_key: privateKey.trim() }),
       });
-      const start = await readJson(startResponse);
-      if (!startResponse.ok) throw new Error(String(start.error ?? `Unable to start Perpl enrollment (${startResponse.status})`));
-
-      const typedData = start.typed_data as TypedDataPayload;
-      if (!typedData?.domain || !typedData?.types || !typedData?.primaryType || !typedData?.message) {
-        throw new Error("Perpl returned an invalid signing payload.");
-      }
-
-      let walletSignature: string;
+      const text = await response.text();
+      let result: Record<string, unknown> = {};
       try {
-        walletSignature = await signTypedDataAsync(typedData as any);
-      } catch (err) {
-        throw new Error(err instanceof Error ? `Wallet signature failed: ${err.message}` : "Wallet signature failed.");
+        result = text ? JSON.parse(text) as Record<string, unknown> : {};
+      } catch {
+        result = { error: text };
       }
-
-      const completeResponse = await fetch(`${API_URL}/api/perpl/enroll/complete`, {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${accessKey}` },
-        body: JSON.stringify({ enrollment_id: start.enrollment_id, wallet_signature: walletSignature }),
-      });
-      const complete = await readJson(completeResponse);
-      if (!completeResponse.ok) throw new Error(String(complete.error ?? `Perpl enrollment failed (${completeResponse.status})`));
+      if (!response.ok) throw new Error(String(result.error ?? `Perpl connection failed (${response.status})`));
       setConnected(true);
+      setApiKey("");
+      setPrivateKey("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Perpl enrollment failed");
+      setError(err instanceof Error ? err.message : "Perpl connection failed");
     } finally {
       setBusy(false);
     }
@@ -83,15 +64,27 @@ export function PerplEnrollment() {
       <div className="section-heading">
         <div>
           <h2>Perpl trading connection</h2>
-          <p>Enable the authenticated Perpl session used for positions, orders, balances and trading state.</p>
+          <p>Create a read + trade API key in Perpl, then connect it to AgentHub.</p>
         </div>
       </div>
       {connected ? (
         <p className="success-text">Perpl trading is connected.</p>
       ) : (
         <>
-          <button className="button-primary" disabled={busy || !isConnected} onClick={() => void enroll()}>
-            {busy ? "Connecting to Perpl..." : "Connect Perpl trading"}
+          <a className="button-secondary" href={PERPL_API_KEYS_URL} target="_blank" rel="noreferrer">
+            Open Perpl API keys
+          </a>
+          <label className="field">
+            <span>PERPL API KEY</span>
+            <input value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="Paste your X-API-Key token" autoComplete="off" disabled={busy} />
+          </label>
+          <label className="field">
+            <span>PERPL PRIVATE KEY</span>
+            <input type="password" value={privateKey} onChange={(event) => setPrivateKey(event.target.value)} placeholder="Paste your 32-byte Ed25519 private key" autoComplete="off" disabled={busy} />
+          </label>
+          <p className="panel-note">AgentHub stores both values encrypted on the backend and uses them only to sign Perpl requests. Never paste a wallet seed phrase or wallet private key here.</p>
+          <button className="button-primary" disabled={busy || !isConnected} onClick={() => void connectPerpl()}>
+            {busy ? "Checking Perpl key..." : "Connect Perpl trading"}
           </button>
           {error && <p className="error-text" role="alert">{error}</p>}
         </>
