@@ -37,10 +37,9 @@ export async function requestEnrollmentPayload(params: {
   targetProfile?: Address;
   origin: string;
 }): Promise<PerplPayloadResponse> {
-  // Perpl's payload endpoint signs the API-key material for the owner wallet.
-  // The delegated trading profile is supplied during enrollment, not when
-  // requesting the signing payload. Sending target_profile here causes Perpl
-  // to reject the payload request with HTTP 400.
+  // target_profile must be included in the payload request for delegated
+  // accounts. Perpl freezes the target profile into the EIP-712 payload, so
+  // omitting it here makes the wallet sign the wrong enrollment.
   const response = await fetch(`${API_URL}/v1/api-key/payload`, {
     method: "POST",
     headers: {
@@ -53,6 +52,7 @@ export async function requestEnrollmentPayload(params: {
       public_key: params.publicKey,
       scope_mask: params.scopeMask ?? 3,
       label: params.label,
+      ...(params.targetProfile ? { target_profile: params.targetProfile } : {}),
     }),
   });
 
