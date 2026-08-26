@@ -141,7 +141,7 @@ export async function handlePerplRoute(
     try {
       const payload = { typed_data: pending.typedData, mac: pending.mac } as any;
       const result = await enrollApiKey({
-        address: pending.walletOwner,
+        address: identity.owner as Address,
         payload,
         walletSignature,
         privateKey: pending.privateKey,
@@ -159,13 +159,9 @@ export async function handlePerplRoute(
         throw new Error("Unable to finalize Perpl enrollment");
       }
 
-      json(res, 200, {
-        connected: true,
-        connector: "perpl",
-        delegated_account: identity.delegatedAccount,
-      });
+      json(res, 200, { ok: true });
     } catch (error) {
-      await releaseClaimedEnrollment(enrollmentId, identity.id);
+      await releaseClaimedEnrollment(enrollmentId, identity.id).catch(() => undefined);
       json(res, 502, {
         error: error instanceof Error ? error.message : "Perpl enrollment failed",
       });
