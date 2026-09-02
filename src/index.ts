@@ -41,12 +41,6 @@ function json(res: any, status: number, body: unknown, retryAfterMs = 0) {
   res.writeHead(status, headers); res.end(JSON.stringify(body));
 }
 
-function limited(req: any, res: any, scope: string, max: number, windowMs: number): boolean {
-  const result = rateLimit(`${scope}:${clientIp(req.headers)}`, max, windowMs);
-  if (result.allowed) return false;
-  json(res, 429, { error: "Too many requests" }, result.retryAfterMs); return true;
-}
-
 async function body(req: any): Promise<Record<string, unknown>> {
   const chunks: Buffer[] = [];
   for await (const chunk of req) chunks.push(Buffer.from(chunk));
@@ -120,11 +114,19 @@ const server = createServer(async (req, res) => {
       try { return json(res, 200, await checkDelegatedAccount(delegatedMatch[1] as Address, publicClient)); } catch { return json(res, 502, { error: "Unable to check delegated account" }); }
     }
     return json(res, 404, { error: "Not found" });
-  } catch {
+  } catch (error) {
     if (res.writableEnded) return;
-    return json(res, 400, { error: "Bad request" });
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Request ${req.method} ${req.url} failed: ${message}`);
+    return json(res, 400, { error: message });
   }
 });
+
+function limited(req: any, res: any, scope: string, max: number, windowMs: number): boolean {
+  const result = rateLimit(`${scope}:${clientIp(req.headers)}`, max, windowMs);
+  if (result.allowed) return false;
+  json(res, 429, { error: "Too many requests" }, result.retryAfterMs); return true;
+}
 
 server.listen(port, "0.0.0.0", () => console.log(`agenthub2 listening on ${port}`));
 verifyPerplDeployment().then((deployment) => console.log(JSON.stringify({ deployment }))).catch(() => console.error("Perpl deployment check failed"));
