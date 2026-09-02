@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes } from "crypto";
 import * as ed from "@noble/ed25519";
 import WebSocket from "ws";
 import type { PerplOrderRequest, PerplWsMessage } from "./types.js";
@@ -26,10 +26,11 @@ export interface PerplOrderResult {
 }
 
 function extractLastRequestId(message: PerplWsMessage): number | undefined {
-  const root = typeof message.d === "object" && message.d !== null
-    ? message.d as Record<string, unknown>
-    : message as unknown as Record<string, unknown>;
-  const direct = root.lfr;
+  const root = message as unknown as Record<string, unknown>;
+  const accounts = Array.isArray(root.as) ? root.as : [];
+  const firstAccount = accounts.find((item) => item && typeof item === "object") as Record<string, unknown> | undefined;
+  const data = firstAccount ?? (typeof message.d === "object" && message.d !== null ? message.d as Record<string, unknown> : undefined) ?? root;
+  const direct = data.lfr;
   return typeof direct === "number" && Number.isSafeInteger(direct) && direct >= 0 ? direct : undefined;
 }
 
@@ -57,20 +58,15 @@ export class PerplTradingWs {
       const timeout = setTimeout(() => {
         if (!settled) {
           settled = true;
-          reject(new Error("Perpl trading WS connection timeout"));
+          reject(new Error("Perpl trading WS authentication timeout"));
         }
       }, 5000);
 
       ws.once("open", () => {
-        clearTimeout(timeout);
-        void this.signIn().then(() => {
+        void this.signIn().catch((error) => {
           if (!settled) {
             settled = true;
-            resolve();
-          }
-        }, (error) => {
-          if (!settled) {
-            settled = true;
+            clearTimeout(timeout);
             reject(error);
           }
         });
@@ -95,6 +91,11 @@ export class PerplTradingWs {
         if (message.mt === 19) {
           const lfr = extractLastRequestId(message);
           if (lfr !== undefined) this.requestId = Math.max(this.requestId, lfr);
+          if (!settled) {
+            settled = true;
+            clearTimeout(timeout);
+            resolve();
+          }
         }
         if (message.mt === 100 && typeof message.h === "number") this.headBlock = message.h;
 
@@ -107,8 +108,14 @@ export class PerplTradingWs {
         for (const listener of this.listeners) listener(message);
       });
 
-      ws.on("close", () => {
+      ws.on("close", (code) => {
         this.ws = undefined;
+        if (!settled) {
+          settled = true;
+          clearTimeout(timeout);
+          const detail = code === 3401 ? "Perpl trading WebSocket authentication failed" : `Perpl trading WebSocket closed before authentication (code ${code})`;
+          reject(new Error(detail));
+        }
       });
     });
   }
