@@ -1,57 +1,99 @@
 "use client";
 
 import { useState } from "react";
-import { useAccount } from "wagmi";
+import { useAccount, useWalletClient } from "wagmi";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://agenthub2.onrender.com";
 const ACCESS_KEY_STORAGE = "agenthub_identity_access_key";
-const PERPL_API_KEYS_URL = "https://app.perpl.xyz/apikeys";
+
+type EnrollmentStart = {
+  enrollment_id: string;
+  typed_data: {
+    domain: Record<string, unknown>;
+    types: Record<string, Array<{ name: string; type: string }>>;
+    primaryType: string;
+    message: Record<string, unknown>;
+  };
+  expires_at: number;
+};
+
+async function readJson(response: Response) {
+  const text = await response.text();
+  let result: Record<string, unknown> = {};
+  try {
+    result = text ? JSON.parse(text) as Record<string, unknown> : {};
+  } catch {
+    result = { error: text };
+  }
+  if (!response.ok) {
+    throw new Error(String(result.error ?? `Request failed (${response.status})`));
+  }
+  return result;
+}
 
 export function PerplEnrollment() {
-  const { isConnected } = useAccount();
-  const [apiKey, setApiKey] = useState("");
-  const [privateKey, setPrivateKey] = useState("");
+  const { address, isConnected } = useAccount();
+  const { data: walletClient } = useWalletClient();
   const [busy, setBusy] = useState(false);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState("");
 
   async function connectPerpl() {
     const accessKey = window.localStorage.getItem(ACCESS_KEY_STORAGE);
-    if (!isConnected) {
+
+    if (!isConnected || !address) {
       setError("Connect your AgentHub wallet first.");
+      return;
+    }
+    if (!walletClient) {
+      setError("Your wallet is not ready yet. Connect it and try again.");
       return;
     }
     if (!accessKey) {
       setError("Your AgentHub identity is not authorized. Return to onboarding first.");
       return;
     }
-    if (!apiKey.trim() || !privateKey.trim()) {
-      setError("Paste both the Perpl API key and private key from the Perpl API keys page.");
-      return;
-    }
 
     setBusy(true);
     setError("");
+
     try {
-      const response = await fetch(`${API_URL}/api/perpl/connect`, {
+      const startResponse = await fetch(`${API_URL}/api/perpl/enroll/start`, {
         method: "POST",
         headers: {
           "content-type": "application/json",
           authorization: `Bearer ${accessKey}`,
         },
-        body: JSON.stringify({ api_key: apiKey.trim(), private_key: privateKey.trim() }),
+        body: JSON.stringify({
+          wallet_address: address,
+          label: "AgentHub2",
+        }),
       });
-      const text = await response.text();
-      let result: Record<string, unknown> = {};
-      try {
-        result = text ? JSON.parse(text) as Record<string, unknown> : {};
-      } catch {
-        result = { error: text };
-      }
-      if (!response.ok) throw new Error(String(result.error ?? `Perpl connection failed (${response.status})`));
+
+      const start = await readJson(startResponse) as unknown as EnrollmentStart;
+
+      const { EIP712Domain: _ignored, ...signingTypes } = start.typed_data.types;
+      const signature = await walletClient.signTypedData({
+        account: address,
+        domain: start.typed_data.domain as any,
+        types: signingTypes as any,
+        primaryType: start.typed_data.primaryType as any,
+        message: start.typed_data.message as any,
+      });
+
+      await readJson(await fetch(`${API_URL}/api/perpl/enroll/complete`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${accessKey}`,
+        },
+        body: JSON.stringify({
+          enrollment_id: start.enrollment_id,
+          wallet_signature: signature,
+        }),
+      }));
+
       setConnected(true);
-      setApiKey("");
-      setPrivateKey("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Perpl connection failed");
     } finally {
@@ -64,27 +106,19 @@ export function PerplEnrollment() {
       <div className="section-heading">
         <div>
           <h2>Perpl trading connection</h2>
-          <p>Create a read + trade API key in Perpl, then connect it to AgentHub.</p>
+          <p>Connect Perpl with your AgentHub wallet. No Perpl API key needs to be copied into the dashboard.</p>
         </div>
       </div>
+
       {connected ? (
         <p className="success-text">Perpl trading is connected.</p>
       ) : (
         <>
-          <a className="button-secondary" href={PERPL_API_KEYS_URL} target="_blank" rel="noreferrer">
-            Open Perpl API keys
-          </a>
-          <label className="field">
-            <span>PERPL API KEY</span>
-            <input value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="Paste your X-API-Key token" autoComplete="off" disabled={busy} />
-          </label>
-          <label className="field">
-            <span>PERPL PRIVATE KEY</span>
-            <input type="password" value={privateKey} onChange={(event) => setPrivateKey(event.target.value)} placeholder="Paste your 32-byte Ed25519 private key" autoComplete="off" disabled={busy} />
-          </label>
-          <p className="panel-note">AgentHub stores both values encrypted on the backend and uses them only to sign Perpl requests. Never paste a wallet seed phrase or wallet private key here.</p>
+          <p className="panel-note">
+            AgentHub creates the Ed25519 trading key, asks your wallet to sign the Perpl enrollment payload, and stores the resulting credentials encrypted on the backend.
+          </p>
           <button className="button-primary" disabled={busy || !isConnected} onClick={() => void connectPerpl()}>
-            {busy ? "Checking Perpl key..." : "Connect Perpl trading"}
+            {busy ? "Connecting Perpl..." : "Connect Perpl trading"}
           </button>
           {error && <p className="error-text" role="alert">{error}</p>}
         </>
