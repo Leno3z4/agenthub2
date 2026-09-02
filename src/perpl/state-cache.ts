@@ -39,7 +39,9 @@ function applyItems(target: Map<string, JsonObject>, items: JsonObject[], remove
   while (target.size > MAX_ITEMS) target.delete(target.keys().next().value!);
 }
 function accountFrom(message: PerplWsMessage): AccountView | null {
-  const data = object(message.d) ?? message as unknown as JsonObject;
+  const root = message as unknown as JsonObject;
+  const snapshotAccounts = array(root.as);
+  const data = object(snapshotAccounts[0]) ?? object(message.d) ?? root;
   const id = numeric(data.id), instanceId = numeric(data.in), balance = text(data.b), lockedBalance = text(data.lb);
   if (id === null && balance === null && lockedBalance === null) return null;
   return { instanceId, accountId: id, frozen: typeof data.fr === "boolean" ? data.fr : null, forwardingEnabled: typeof data.fw === "boolean" ? data.fw : null, lastForwardedRequestId: numeric(data.lfr), balance, lockedBalance, updatedAt: Date.now() };
@@ -62,7 +64,7 @@ export async function ensurePerplAccountState(identityId: string) {
     if (message.mt === 19) {
       const account = accountFrom(message);
       if (account) current.account = account;
-      current.lastSequence = numeric(message.sn);
+      current.lastSequence = numeric((message as unknown as JsonObject).sn);
       current.sequenceGap = false;
       return;
     }
